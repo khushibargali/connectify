@@ -10,7 +10,7 @@ See [PLAN.md](PLAN.md) for the architecture, data model, API contract and delive
 |---|---|
 | App (client on Vercel) | <https://connectify-mihir6.vercel.app> |
 | App (API + client, Cloudflare tunnel) | <https://latitude-voip-cartoons-nowhere.trycloudflare.com> |
-| Source | <https://github.com/Mihirsingh03/connectify> |
+| Source | <https://github.com/khushibargali/connectify> |
 
 Demo accounts: `alice`, `bob`, `carol`, `dave` (phones +1 555 000 0101 … 0104) — password `password123`. Or create your own account with any phone number. Open two browsers with two accounts to see live delivery, typing, media and read receipts.
 

@@ -1,6 +1,6 @@
 # Deploying Connectify
 
-**Current live links (2026-09-15):** client on Vercel at <https://connectify-mihir6.vercel.app>, full app through a Cloudflare tunnel at <https://latitude-voip-cartoons-nowhere.trycloudflare.com>, source at <https://github.com/Mihirsingh03/connectify>. The Vercel project is linked to the repo, so every push to `main` redeploys the client. The tunnel is temporary; to make the API permanent follow Option A below and then set `VITE_API_URL` on the Vercel project to the Render URL.
+**Current live links (2026-09-15):** client on Vercel at <https://connectify-mihir6.vercel.app>, full app through a Cloudflare tunnel at <https://latitude-voip-cartoons-nowhere.trycloudflare.com>, source at <https://github.com/khushibargali/connectify>. The Vercel project is linked to a mirror of this repo (Mihirsingh03/connectify) whose `main` redeploys the client on every push; the local checkout pushes to both remotes. The tunnel is temporary; to make the API permanent follow Option A below and then set `VITE_API_URL` on the Vercel project to the Render URL.
 
 Connectify is two deployable pieces: the **API** (Express + Socket.IO, needs a long-running Node process because of WebSockets) and the **client** (static Vite build). The API can also serve the built client itself, so the simplest production setup is a single Node service.
 
@@ -10,7 +10,7 @@ Connectify is two deployable pieces: the **API** (Express + Socket.IO, needs a l
 
 The repo contains a [render.yaml](render.yaml) blueprint that builds the client, starts the API, and serves both from one URL.
 
-1. Open <https://render.com/deploy?repo=https://github.com/Mihirsingh03/connectify> (or Dashboard → New → Blueprint → pick the repo).
+1. Open <https://render.com/deploy?repo=https://github.com/khushibargali/connectify> (or Dashboard → New → Blueprint → pick the repo).
 2. Accept the defaults and click **Apply**. A `JWT_SECRET` is generated for you.
 3. Wait for the build (3–5 minutes on the first deploy). Your app is at `https://connectify-<hash>.onrender.com`.
 
