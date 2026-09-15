@@ -1,0 +1,9 @@
+import api from './client.js';
+
+export const authApi = {
+  register: (data) => api.post('/auth/register', data).then((r) => r.data),
+  login: (data) => api.post('/auth/login', data).then((r) => r.data),
+  me: () => api.get('/auth/me').then((r) => r.data.user),
+  logout: (token) =>
+    api.post('/auth/logout', null, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
+};

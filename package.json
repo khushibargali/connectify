@@ -1,0 +1,21 @@
+{
+  "name": "connectify",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Connectify — real-time messaging platform (React, Node, Express, MongoDB, Socket.IO)",
+  "scripts": {
+    "postinstall": "npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently -n server,client -c blue,green \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "test": "npm --prefix server test",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start",
+    "seed": "npm --prefix server run seed",
+    "start:prod": "NODE_ENV=production npm --prefix server start",
+    "tunnel": "cloudflared tunnel --url http://localhost:4000"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

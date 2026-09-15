@@ -1,0 +1,24 @@
+# Render Blueprint — one web service running the API and serving the built client.
+# Demo mode: no database to configure; an in-memory MongoDB is seeded on every start.
+# For persistent data add a MongoDB Atlas connection string as MONGO_URI in the dashboard.
+services:
+  - type: web
+    name: connectify
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build && node server/scripts/ensure-mongo-binary.js
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SEED_DEMO
+        value: "true"
+      - key: CLIENT_ORIGIN
+        value: https://*.onrender.com,https://*.vercel.app
+      - key: MONGOMS_DOWNLOAD_DIR
+        value: /opt/render/project/src/server/.mongodb-binaries
