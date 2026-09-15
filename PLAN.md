@@ -244,7 +244,7 @@ Key behaviours:
 - `npm run build`: production client bundle builds (Vite 8, ~127 kB gzipped).
 - Manual QA in a headless browser against the seeded API: login → conversation list → open group chat (unread badge clears) → send → second user typing indicator in header and composer → live reply → "Seen by 1" → sidebar preview updates; group details modal; user search → new direct chat → send → delete (tombstone in list and sidebar); logout; registration field errors and successful sign-up; session restore on reload; mobile layout (single pane, back button, no horizontal overflow). No console errors.
 - Note: on macOS port 5000 is taken by AirPlay Receiver, so the API defaults to port 4000.
-- Deployed 2026-09-15: source pushed to a private GitHub repo; client deployed to Vercel (git-linked, auto-deploys on push); API + client also served through a Cloudflare tunnel from the dev machine and verified in a browser (login, WebSocket upgrade, live send, deep-link reload). Render blueprint and Dockerfile added for permanent hosting.
+- Deployed 2026-09-15: source on GitHub (khushibargali/connectify); API + client served through a Cloudflare tunnel from the dev machine and verified in a browser (login, WebSocket upgrade, live send, deep-link reload). Render blueprint and Dockerfile added for permanent hosting.
 
 ## 14. v1.1 — WhatsApp-style additions (2026-09-15)
 

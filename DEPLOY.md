@@ -1,6 +1,6 @@
 # Deploying Connectify
 
-**Current live links (2026-09-15):** client on Vercel at <https://connectify-mihir6.vercel.app>, full app through a Cloudflare tunnel at <https://latitude-voip-cartoons-nowhere.trycloudflare.com>, source at <https://github.com/khushibargali/connectify>. The Vercel project is linked to a mirror of this repo (Mihirsingh03/connectify) whose `main` redeploys the client on every push; the local checkout pushes to both remotes. The tunnel is temporary; to make the API permanent follow Option A below and then set `VITE_API_URL` on the Vercel project to the Render URL.
+**Current demo link (2026-09-15):** full app through a Cloudflare tunnel at <https://latitude-voip-cartoons-nowhere.trycloudflare.com>, source at <https://github.com/khushibargali/connectify>. The tunnel is temporary; to make the API permanent follow Option A below.
 
 Connectify is two deployable pieces: the **API** (Express + Socket.IO, needs a long-running Node process because of WebSockets) and the **client** (static Vite build). The API can also serve the built client itself, so the simplest production setup is a single Node service.
 

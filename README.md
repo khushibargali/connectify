@@ -8,15 +8,12 @@ See [PLAN.md](PLAN.md) for the architecture, data model, API contract and delive
 
 | | URL |
 |---|---|
-| App (client on Vercel) | <https://connectify-mihir6.vercel.app> |
 | App (API + client, Cloudflare tunnel) | <https://latitude-voip-cartoons-nowhere.trycloudflare.com> |
 | Source | <https://github.com/khushibargali/connectify> |
 
 Demo accounts: `alice`, `bob`, `carol`, `dave` (phones +1 555 000 0101 … 0104) — password `password123`. Or create your own account with any phone number. Open two browsers with two accounts to see live delivery, typing, media and read receipts.
 
-The Vercel link is behind **Vercel Authentication** (the team default for new projects) until it is switched off in Vercel → Project → Settings → Deployment Protection; until then only people logged into the Vercel team can open it. The tunnel link is fully public.
-
-The API behind both links currently runs on the developer's machine through a Cloudflare quick tunnel, so it is available while that machine is on; see [DEPLOY.md](DEPLOY.md) for the one-click Render setup that makes it permanent.
+The API behind the demo link currently runs on the developer's machine through a Cloudflare quick tunnel, so it is available while that machine is on; see [DEPLOY.md](DEPLOY.md) for the one-click Render setup that makes it permanent.
 
 ## Features
 
