@@ -1,10 +1,16 @@
 import * as userService from '../services/user.service.js';
-import { searchUsersQuerySchema } from '../validation/schemas.js';
+import { lookupPhoneQuerySchema, searchUsersQuerySchema } from '../validation/schemas.js';
 
 export async function search(req, res) {
   const query = searchUsersQuerySchema.parse(req.query);
   const users = await userService.search(req.user._id, query);
   res.json({ users });
+}
+
+export async function lookupByPhone(req, res) {
+  const { phone } = lookupPhoneQuerySchema.parse(req.query);
+  const user = await userService.getByPhone(phone);
+  res.json({ user });
 }
 
 export async function getOne(req, res) {

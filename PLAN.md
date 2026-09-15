@@ -33,6 +33,13 @@ This document is the working plan for the project: what is being built, how it i
 - [x] Demo seed data
 - [x] Automated tests (auth, conversations, messages, sockets)
 
+v1.1 (WhatsApp-style, see §14):
+
+- [x] Phone-number accounts, login by phone/username/email, chat by number
+- [x] Photos, videos, voice notes and documents with upload progress and lightbox
+- [x] Delivery receipts and WhatsApp ticks (✓ / ✓✓ / blue ✓✓)
+- [x] Emoji picker, profile photo upload, WhatsApp-style theme
+
 Out of scope for v1 (see roadmap): media uploads, message reactions, end-to-end encryption, push notifications, horizontal scaling of Socket.IO.
 
 ## 3. Architecture
@@ -231,3 +238,13 @@ Key behaviours:
 - Manual QA in a headless browser against the seeded API: login → conversation list → open group chat (unread badge clears) → send → second user typing indicator in header and composer → live reply → "Seen by 1" → sidebar preview updates; group details modal; user search → new direct chat → send → delete (tombstone in list and sidebar); logout; registration field errors and successful sign-up; session restore on reload; mobile layout (single pane, back button, no horizontal overflow). No console errors.
 - Note: on macOS port 5000 is taken by AirPlay Receiver, so the API defaults to port 4000.
 - Deployed 2026-09-15: source pushed to a private GitHub repo; client deployed to Vercel (git-linked, auto-deploys on push); API + client also served through a Cloudflare tunnel from the dev machine and verified in a browser (login, WebSocket upgrade, live send, deep-link reload). Render blueprint and Dockerfile added for permanent hosting.
+
+## 14. v1.1 — WhatsApp-style additions (2026-09-15)
+
+**Accounts by phone number.** `User.phone` (E.164, unique) is the primary identity; `email` and `username` are optional (the username is generated from the display name when omitted). Login accepts a phone number, username or email. `GET /users/lookup?phone=` powers "start a chat by number"; search also matches phone digits.
+
+**Media messages.** `POST /uploads` (multer, allow-listed MIME types, 25 MB default) stores files under `server/uploads/<yyyy-mm>/<uuid>.<ext>` and serves them at `/uploads/…` with a cross-origin resource policy so the Vercel-hosted client can load them. `Message.type` is now `text | image | video | audio | file | system` with an `attachment { url, name, mimeType, size, duration }` sub-document; the service only accepts attachment URLs that point at files it stored. Deleting a message removes the file. The client shows a local preview immediately, uploads with progress, then sends over the socket; the ack replaces the optimistic row. Voice notes are recorded with MediaRecorder in the browser.
+
+**Delivery receipts.** Each participant now carries `lastDeliveredAt` next to `lastReadAt`. Clients emit `conversation:delivered` on receipt, and the server marks everything delivered when a user connects; `conversation:delivered { conversationId, userId, deliveredAt }` is broadcast to the room. Ticks: ✓ sent (acked), ✓✓ delivered to all other members, blue ✓✓ read by all other members.
+
+**Verification.** 36 server tests (auth by phone, lookup, uploads, media messages, socket media, delivery receipts) and a browser run covering sign-up by phone, chat by number, photo + caption, document, lightbox, emoji, live photo receipt, blue ticks, profile photo upload and mobile layout.

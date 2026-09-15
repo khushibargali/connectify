@@ -27,6 +27,9 @@ export function errorHandler(err, _req, res, _next) {
     status = 409;
     const field = Object.keys(err.keyValue || {})[0];
     message = field ? `That ${field} is already taken` : 'Duplicate value';
+  } else if (err.name === 'MulterError') {
+    status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    message = err.code === 'LIMIT_FILE_SIZE' ? `File is too large (max ${env.MAX_UPLOAD_MB} MB)` : `Upload failed: ${err.message}`;
   } else if (err.type === 'entity.parse.failed') {
     status = 400;
     message = 'Malformed JSON body';

@@ -1,3 +1,5 @@
+import { messageSummary } from './media.js';
+
 /** Helpers for reading conversation objects as returned by the API. */
 
 export function participantUsers(conversation) {
@@ -31,10 +33,9 @@ export function typingLabel(users) {
 export function previewText(conversation, meId) {
   const message = conversation?.lastMessage;
   if (!message) return 'No messages yet';
-  if (message.deletedAt) return 'Message deleted';
   const mine = message.sender?.id === meId;
   const sender = mine ? 'You' : message.sender?.displayName || '';
   if (message.type === 'system') return `${sender} ${message.content}`;
   const prefix = conversation.type === 'group' || mine ? `${sender}: ` : '';
-  return `${prefix}${message.content}`;
+  return `${prefix}${messageSummary(message)}`;
 }

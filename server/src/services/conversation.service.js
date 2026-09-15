@@ -166,13 +166,37 @@ export async function leave(conversationId, userId) {
   return { conversation: serialize(conversation, 0), message };
 }
 
-/** Moves the member's read marker forward. Returns the timestamp used. */
+/** Moves the member's read marker forward (reading implies delivery). Returns the timestamp used. */
 export async function markRead(conversationId, userId) {
   const readAt = new Date();
   const result = await Conversation.updateOne(
     { _id: conversationId, 'participants.user': userId },
-    { $max: { 'participants.$.lastReadAt': readAt } },
+    { $max: { 'participants.$.lastReadAt': readAt, 'participants.$.lastDeliveredAt': readAt } },
   );
   if (result.matchedCount === 0) throw ApiError.notFound('Conversation not found');
   return readAt;
+}
+
+/** Marks everything in one conversation as delivered to this member (✓✓). */
+export async function markDelivered(conversationId, userId) {
+  const deliveredAt = new Date();
+  const result = await Conversation.updateOne(
+    { _id: conversationId, 'participants.user': userId },
+    { $max: { 'participants.$.lastDeliveredAt': deliveredAt } },
+  );
+  if (result.matchedCount === 0) throw ApiError.notFound('Conversation not found');
+  return deliveredAt;
+}
+
+/** When a user comes online every pending message in their conversations is delivered. */
+export async function markAllDelivered(userId) {
+  const deliveredAt = new Date();
+  const ids = await Conversation.distinct('_id', { 'participants.user': userId });
+  if (ids.length > 0) {
+    await Conversation.updateMany(
+      { _id: { $in: ids }, 'participants.user': userId },
+      { $max: { 'participants.$.lastDeliveredAt': deliveredAt } },
+    );
+  }
+  return { conversationIds: ids.map(String), deliveredAt };
 }

@@ -6,6 +6,7 @@ import { participantUsers } from '../../lib/conversation.js';
 import Spinner from '../common/Spinner.jsx';
 import ChatHeader from './ChatHeader.jsx';
 import ConversationInfoModal from './ConversationInfoModal.jsx';
+import Lightbox from './Lightbox.jsx';
 import MessageInput from './MessageInput.jsx';
 import MessageList from './MessageList.jsx';
 import TypingIndicator from './TypingIndicator.jsx';
@@ -28,6 +29,7 @@ export default function ChatWindow({ conversationId }) {
     deleteMessage,
   } = useChat();
   const [showInfo, setShowInfo] = useState(false);
+  const [media, setMedia] = useState(null);
 
   const conversation = conversations.find((c) => c.id === conversationId);
   const bucket = messages[conversationId];
@@ -100,14 +102,16 @@ export default function ChatWindow({ conversationId }) {
         onDelete={(message) => deleteMessage(message).catch((err) => console.error(err))}
         onRetry={retryMessage}
         onDiscard={discardMessage}
+        onOpenMedia={setMedia}
       />
       <TypingIndicator users={typingUsers} />
       <MessageInput
         key={conversationId}
-        onSend={(content) => sendMessage(conversationId, content)}
+        onSend={(input) => sendMessage(conversationId, input)}
         onTyping={(isTyping) => sendTyping(conversationId, isTyping)}
       />
       {showInfo && <ConversationInfoModal conversation={conversation} onClose={() => setShowInfo(false)} />}
+      {media && <Lightbox message={media} onClose={() => setMedia(null)} />}
     </div>
   );
 }

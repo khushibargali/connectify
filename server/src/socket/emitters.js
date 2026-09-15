@@ -60,6 +60,15 @@ export function memberLeft(io, conversationId, userId, conversation, message) {
   }
 }
 
+export function conversationDelivered(io, conversationId, userId, deliveredAt) {
+  if (!io) return;
+  io.to(conversationRoom(String(conversationId))).emit('conversation:delivered', {
+    conversationId: String(conversationId),
+    userId: String(userId),
+    deliveredAt,
+  });
+}
+
 export function conversationRead(io, conversationId, userId, readAt) {
   if (!io) return;
   io.to(conversationRoom(String(conversationId))).emit('conversation:read', {

@@ -34,6 +34,7 @@ export default function UserMenu({ onProfile }) {
         <div className="menu__panel" role="menu">
           <div className="menu__identity">
             <strong>{user.displayName}</strong>
+            <span className="muted">{user.phone}</span>
             <span className="muted">@{user.username}</span>
           </div>
           <button type="button" role="menuitem" className="menu__item" onClick={() => { setOpen(false); onProfile(); }}>

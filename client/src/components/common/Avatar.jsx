@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { initials } from '../../lib/format.js';
+import { resolveMediaUrl } from '../../lib/media.js';
 import Icon from './Icon.jsx';
 
 const COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316'];
@@ -18,7 +19,7 @@ export default function Avatar({ name = '', src = '', size = 40, online, group =
   return (
     <span className={`avatar ${className}`} style={style}>
       {showImage ? (
-        <img src={src} alt={name} onError={() => setFailed(true)} />
+        <img src={resolveMediaUrl(src)} alt={name} onError={() => setFailed(true)} />
       ) : group ? (
         <span className="avatar__fallback avatar__fallback--group">
           <Icon name="users" size={Math.round(size * 0.5)} />

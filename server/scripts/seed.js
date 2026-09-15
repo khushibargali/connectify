@@ -8,10 +8,10 @@ import logger from '../src/utils/logger.js';
 export const DEMO_PASSWORD = 'password123';
 
 const DEMO_USERS = [
-  { username: 'alice', displayName: 'Alice Johnson', bio: 'Front-end engineer. Coffee first.' },
-  { username: 'bob', displayName: 'Bob Martinez', bio: 'Back-end & infra. Ask me about sockets.' },
-  { username: 'carol', displayName: 'Carol Nguyen', bio: 'Product designer.' },
-  { username: 'dave', displayName: 'Dave Okafor', bio: 'QA and release manager.' },
+  { username: 'alice', phone: '+15550000101', displayName: 'Alice Johnson', bio: 'Front-end engineer. Coffee first.' },
+  { username: 'bob', phone: '+15550000102', displayName: 'Bob Martinez', bio: 'Back-end & infra. Ask me about sockets.' },
+  { username: 'carol', phone: '+15550000103', displayName: 'Carol Nguyen', bio: 'Product designer.' },
+  { username: 'dave', phone: '+15550000104', displayName: 'Dave Okafor', bio: 'QA and release manager.' },
 ];
 
 async function createThread(conversation, lines, startedAt) {
@@ -23,7 +23,10 @@ async function createThread(conversation, lines, startedAt) {
   }
   conversation.lastMessage = last._id;
   conversation.lastMessageAt = last.createdAt;
-  for (const p of conversation.participants) p.lastReadAt = last.createdAt;
+  for (const p of conversation.participants) {
+    p.lastReadAt = last.createdAt;
+    p.lastDeliveredAt = last.createdAt;
+  }
   await conversation.save();
 }
 
@@ -77,7 +80,7 @@ export async function seedDemoData({ force = false } = {}) {
   );
   await Message.updateOne({ conversation: group._id, sender: alice._id }, { $set: { type: 'system' } });
 
-  logger.info(`Demo data seeded — log in as ${DEMO_USERS.map((u) => u.username).join(', ')} with password "${DEMO_PASSWORD}"`);
+  logger.info(`Demo data seeded — log in as ${DEMO_USERS.map((u) => `${u.username} (${u.phone})`).join(', ')} with password "${DEMO_PASSWORD}"`);
 }
 
 // CLI: `node scripts/seed.js [--force]`

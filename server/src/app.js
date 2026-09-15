@@ -5,6 +5,7 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import env from './config/env.js';
+import { UPLOAD_DIR, ensureUploadDir } from './config/uploads.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import routes from './routes/index.js';
@@ -22,16 +23,24 @@ export function createApp() {
 
   app.use(
     helmet({
+      // Uploaded media is also loaded by the Vercel-hosted client (another origin).
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
       contentSecurityPolicy: {
         directives: {
           ...helmet.contentSecurityPolicy.getDefaultDirectives(),
           'connect-src': ["'self'", 'ws:', 'wss:'],
-          'img-src': ["'self'", 'data:', 'https:'],
+          'img-src': ["'self'", 'data:', 'blob:', 'https:'],
+          'media-src': ["'self'", 'data:', 'blob:', 'https:'],
         },
       },
     }),
   );
-  app.use(cors({ origin: createOriginMatcher(env.CLIENT_ORIGINS), credentials: true }));
+  const corsOptions = { origin: createOriginMatcher(env.CLIENT_ORIGINS), credentials: true };
+  app.use(cors(corsOptions));
+
+  // Uploaded photos, videos, voice notes and documents (file names are random UUIDs).
+  ensureUploadDir();
+  app.use('/uploads', cors(corsOptions), express.static(UPLOAD_DIR, { index: false, dotfiles: 'deny', maxAge: '7d', immutable: true }));
   app.use(express.json({ limit: '100kb' }));
   if (env.NODE_ENV !== 'test') app.use(requestLogger);
 
@@ -41,7 +50,7 @@ export function createApp() {
   if (env.NODE_ENV === 'production' && fs.existsSync(CLIENT_DIST)) {
     app.use(express.static(CLIENT_DIST, { index: false, maxAge: '1h' }));
     app.use((req, res, next) => {
-      if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+      if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/socket.io') || req.path.startsWith('/uploads')) return next();
       return res.sendFile(path.join(CLIENT_DIST, 'index.html'));
     });
   }

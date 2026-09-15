@@ -116,6 +116,36 @@ describe('Socket.IO real-time layer', () => {
     assert.match(denied.error, /member/i);
   });
 
+  it('sends media messages over the socket with the attachment intact', async () => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+    const uploaded = await request(srv.app)
+      .post('/api/uploads')
+      .set(auth(alice.token))
+      .attach('file', png, { filename: 'pixel.png', contentType: 'image/png' });
+    assert.equal(uploaded.status, 201);
+    const { url, name, mimeType, size } = uploaded.body.attachment;
+
+    const a = track(await connectReady(srv.url, alice.token));
+    const b = track(await connectReady(srv.url, bob.token));
+    const received = once(b, 'message:new');
+    const ack = await emitWithAck(a, 'message:send', {
+      conversationId: conversation.id,
+      type: 'image',
+      content: 'look',
+      attachment: { url, name, mimeType, size },
+    });
+    assert.equal(ack.ok, true, ack.error);
+    assert.equal(ack.message.type, 'image');
+    assert.equal(ack.message.attachment.url, url);
+    const message = await received;
+    assert.equal(message.type, 'image');
+    assert.equal(message.attachment.name, 'pixel.png');
+    assert.equal(message.content, 'look');
+
+    const rejected = await emitWithAck(a, 'message:send', { conversationId: conversation.id, type: 'file' });
+    assert.equal(rejected.ok, false);
+  });
+
   it('returns error acks for invalid payloads', async () => {
     const a = track(await connectReady(srv.url, alice.token));
     const empty = await emitWithAck(a, 'message:send', { conversationId: conversation.id, content: '  ' });
@@ -179,6 +209,27 @@ describe('Socket.IO real-time layer', () => {
     assert.equal(payload.userId, bob.id);
     assert.equal(payload.online, false);
     assert.ok(payload.lastSeenAt);
+  });
+
+  it('marks messages delivered when the recipient comes online or receives them', async () => {
+    const a = track(await connectReady(srv.url, alice.token));
+    await emitWithAck(a, 'message:send', { conversationId: conversation.id, content: 'are you there?' });
+
+    const delivered = once(a, 'conversation:delivered');
+    const b = track(await connectReady(srv.url, bob.token));
+    const onConnect = await delivered;
+    assert.equal(onConnect.conversationId, conversation.id);
+    assert.equal(onConnect.userId, bob.id);
+    assert.ok(onConnect.deliveredAt);
+
+    const explicit = once(a, 'conversation:delivered');
+    const ack = await emitWithAck(b, 'conversation:delivered', { conversationId: conversation.id });
+    assert.equal(ack.ok, true);
+    assert.equal((await explicit).userId, bob.id);
+
+    const view = await request(srv.app).get(`/api/conversations/${conversation.id}`).set(auth(alice.token));
+    const bobEntry = view.body.conversation.participants.find((p) => p.user.id === bob.id);
+    assert.ok(new Date(bobEntry.lastDeliveredAt) >= new Date(view.body.conversation.lastMessageAt));
   });
 
   it('joins new conversations live so both sides receive conversation:new and later messages', async () => {

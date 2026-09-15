@@ -99,7 +99,7 @@ export default function ConversationInfoModal({ conversation, onClose }) {
                     {m.displayName}
                     {m.id === user.id && <span className="muted"> (you)</span>}
                   </span>
-                  <span className="muted">{online[m.id] ? 'Online' : formatLastSeen(lastSeen[m.id] || m.lastSeenAt)}</span>
+                  <span className="muted">{m.phone ? `${m.phone} · ` : ''}{online[m.id] ? 'Online' : formatLastSeen(lastSeen[m.id] || m.lastSeenAt)}</span>
                 </span>
                 {isAdmin(conversation, m.id) && <span className="tag">Admin</span>}
               </li>

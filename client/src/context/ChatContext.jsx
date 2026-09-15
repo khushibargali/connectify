@@ -2,7 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { useNavigate } from 'react-router-dom';
 import { conversationsApi } from '../api/conversations.api.js';
 import { messagesApi } from '../api/messages.api.js';
+import { uploadsApi } from '../api/uploads.api.js';
 import { newClientId } from '../lib/ids.js';
+import { fileKind, messageSummary } from '../lib/media.js';
 import { useAuth } from './AuthContext.jsx';
 import { chatReducer, initialState } from './chatReducer.js';
 import { useSocket } from './SocketContext.jsx';
@@ -25,6 +27,8 @@ export function ChatProvider({ children }) {
   const activeRef = useRef(null);
   const typingTimers = useRef(new Map());
   const connectedBefore = useRef(false);
+  /** clientId → { file, kind, duration, blobUrl } for optimistic media messages (retry support). */
+  const pendingFiles = useRef(new Map());
 
   // useNavigate() returns a new function on every route change; keep it in a ref so the
   // socket subscriptions below are not torn down and re-created on each navigation.
@@ -54,23 +58,20 @@ export function ChatProvider({ children }) {
     [meId],
   );
 
-  const showDesktopNotification = useCallback(
-    (title, body, conversationId) => {
-      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-      if (document.visibilityState === 'visible' && document.hasFocus()) return;
-      try {
-        const note = new Notification(title, { body, tag: conversationId });
-        note.onclick = () => {
-          window.focus();
-          navigateRef.current(`/c/${conversationId}`);
-          note.close();
-        };
-      } catch {
-        /* notifications blocked by the browser */
-      }
-    },
-    [],
-  );
+  const showDesktopNotification = useCallback((title, body, conversationId) => {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    if (document.visibilityState === 'visible' && document.hasFocus()) return;
+    try {
+      const note = new Notification(title, { body, tag: conversationId });
+      note.onclick = () => {
+        window.focus();
+        navigateRef.current(`/c/${conversationId}`);
+        note.close();
+      };
+    } catch {
+      /* notifications blocked by the browser */
+    }
+  }, []);
 
   // ---- Socket subscriptions -------------------------------------------------
   useEffect(() => {
@@ -94,8 +95,11 @@ export function ChatProvider({ children }) {
         const mine = message.sender?.id === meId;
         const viewing = isViewing(conversationId);
         dispatch({ type: 'messages/add', message, incrementUnread: !mine && !viewing });
-        if (!mine) setTyping(conversationId, message.sender?.id, false);
-        if (!mine && viewing) {
+        if (mine) return;
+        setTyping(conversationId, message.sender?.id, false);
+        // Tell the sender it reached us (✓✓); reading it as well when the chat is open (blue ✓✓).
+        socket.emit('conversation:delivered', { conversationId });
+        if (viewing) {
           socket.emit('conversation:read', { conversationId });
           markReadLocally(conversationId);
         }
@@ -109,6 +113,8 @@ export function ChatProvider({ children }) {
       },
       'conversation:read': ({ conversationId, userId, readAt }) =>
         dispatch({ type: 'conversations/read', conversationId, userId, readAt, isMe: userId === meId }),
+      'conversation:delivered': ({ conversationId, userId, deliveredAt }) =>
+        dispatch({ type: 'conversations/delivered', conversationId, userId, deliveredAt }),
       typing: ({ conversationId, userId, isTyping }) => setTyping(conversationId, userId, isTyping),
       'presence:list': (ids) => dispatch({ type: 'presence/list', ids }),
       'presence:update': (payload) => dispatch({ type: 'presence/update', ...payload }),
@@ -117,7 +123,7 @@ export function ChatProvider({ children }) {
           if (isViewing(note.conversationId)) return;
           const { message } = note;
           const title = message.sender?.displayName || 'New message';
-          const body = message.type === 'system' ? `${title} ${message.content}` : message.content;
+          const body = message.type === 'system' ? `${title} ${message.content}` : messageSummary(message);
           dispatch({ type: 'toasts/add', toast: { id: message.id, title, body, conversationId: note.conversationId } });
           showDesktopNotification(title, body, note.conversationId);
         } else if (note.type === 'conversation:added') {
@@ -174,48 +180,104 @@ export function ChatProvider({ children }) {
     }
   }, []);
 
+  /**
+   * Sends text or media. Media is shown immediately from a local preview, uploaded with
+   * progress, then delivered over the socket; the ack (or broadcast) replaces the optimistic row.
+   */
   const sendMessage = useCallback(
-    (conversationId, content) => {
-      const clientId = newClientId();
-      const optimistic = {
-        id: clientId,
-        clientId,
-        conversation: conversationId,
-        sender: user,
-        type: 'text',
-        content,
-        createdAt: new Date().toISOString(),
-        pending: true,
-      };
-      dispatch({ type: 'messages/add', message: optimistic, incrementUnread: false });
+    (conversationId, input) => {
+      const { content = '', file = null, kind, duration } = typeof input === 'string' ? { content: input } : input || {};
+      const text = content.trim();
+      if (!text && !file) return;
 
-      const settle = (message) => dispatch({ type: 'messages/add', message, incrementUnread: false });
+      const clientId = newClientId();
+      const type = file ? kind || fileKind(file) : 'text';
+      const blobUrl = file ? URL.createObjectURL(file) : null;
+      if (file) pendingFiles.current.set(clientId, { file, kind: type, duration, blobUrl });
+
+      dispatch({
+        type: 'messages/add',
+        incrementUnread: false,
+        message: {
+          id: clientId,
+          clientId,
+          conversation: conversationId,
+          sender: user,
+          type,
+          content: text,
+          createdAt: new Date().toISOString(),
+          pending: true,
+          ...(file && {
+            attachment: { url: blobUrl, name: file.name, mimeType: file.type, size: file.size, duration },
+            progress: 0,
+          }),
+        },
+      });
+
+      const forget = () => {
+        const pending = pendingFiles.current.get(clientId);
+        if (pending?.blobUrl) URL.revokeObjectURL(pending.blobUrl);
+        pendingFiles.current.delete(clientId);
+      };
+      const settle = (message) => {
+        dispatch({ type: 'messages/add', message, incrementUnread: false });
+        forget();
+      };
       const fail = () => dispatch({ type: 'messages/failed', conversationId, clientId });
 
-      if (socket?.connected) {
-        socket.timeout(10000).emit('message:send', { conversationId, content, clientId }, (err, res) => {
-          if (err || !res?.ok) fail();
-          else settle(res.message);
-        });
-      } else {
-        messagesApi.send(conversationId, { content, clientId }).then(settle).catch(fail);
+      const deliver = (attachment) => {
+        const payload = { conversationId, type, content: text, clientId, ...(attachment && { attachment }) };
+        if (socket?.connected) {
+          socket.timeout(15000).emit('message:send', payload, (err, res) => (err || !res?.ok ? fail() : settle(res.message)));
+        } else {
+          messagesApi.send(conversationId, payload).then(settle).catch(fail);
+        }
+      };
+
+      if (!file) {
+        deliver();
+        return;
       }
+      uploadsApi
+        .upload(file, {
+          onProgress: (progress) => dispatch({ type: 'messages/progress', conversationId, clientId, progress }),
+        })
+        .then((stored) =>
+          deliver({
+            url: stored.url,
+            name: stored.name,
+            mimeType: stored.mimeType,
+            size: stored.size,
+            ...(duration != null && { duration }),
+          }),
+        )
+        .catch(fail);
     },
     [socket, user],
   );
 
   const retryMessage = useCallback(
     (message) => {
+      const pending = pendingFiles.current.get(message.clientId);
       dispatch({ type: 'messages/discard', conversationId: message.conversation, messageId: message.id });
-      sendMessage(message.conversation, message.content);
+      if (message.type !== 'text' && !pending) return;
+      if (pending) {
+        pendingFiles.current.delete(message.clientId);
+        sendMessage(message.conversation, { content: message.content, file: pending.file, kind: pending.kind, duration: pending.duration });
+        URL.revokeObjectURL(pending.blobUrl);
+      } else {
+        sendMessage(message.conversation, { content: message.content });
+      }
     },
     [sendMessage],
   );
 
-  const discardMessage = useCallback(
-    (message) => dispatch({ type: 'messages/discard', conversationId: message.conversation, messageId: message.id }),
-    [],
-  );
+  const discardMessage = useCallback((message) => {
+    const pending = pendingFiles.current.get(message.clientId);
+    if (pending?.blobUrl) URL.revokeObjectURL(pending.blobUrl);
+    pendingFiles.current.delete(message.clientId);
+    dispatch({ type: 'messages/discard', conversationId: message.conversation, messageId: message.id });
+  }, []);
 
   const markRead = useCallback(
     (conversationId) => {

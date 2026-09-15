@@ -16,6 +16,8 @@ const env = Object.freeze({
     .filter(Boolean),
   SEED_DEMO: process.env.SEED_DEMO === 'true',
   BCRYPT_ROUNDS: Number(process.env.BCRYPT_ROUNDS) || 10,
+  UPLOAD_DIR: process.env.UPLOAD_DIR || '',
+  MAX_UPLOAD_MB: Number(process.env.MAX_UPLOAD_MB) || 25,
 });
 
 if (env.NODE_ENV === 'production' && env.JWT_SECRET === DEFAULT_SECRET) {

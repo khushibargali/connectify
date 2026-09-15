@@ -6,7 +6,10 @@ export async function search(currentUserId, { q = '', limit = 20 } = {}) {
   const filter = { _id: { $ne: currentUserId } };
   if (q) {
     const pattern = new RegExp(escapeRegex(q), 'i');
-    filter.$or = [{ username: pattern }, { displayName: pattern }];
+    const or = [{ username: pattern }, { displayName: pattern }];
+    const digits = q.replace(/[\s().+-]/g, '');
+    if (/^\d{3,}$/.test(digits)) or.push({ phone: new RegExp(`${escapeRegex(digits)}$`) });
+    filter.$or = or;
   }
   return User.find(filter).select(PUBLIC_USER_FIELDS).sort({ displayName: 1 }).limit(limit);
 }
@@ -14,6 +17,12 @@ export async function search(currentUserId, { q = '', limit = 20 } = {}) {
 export async function getById(id) {
   const user = await User.findById(id).select(PUBLIC_USER_FIELDS);
   if (!user) throw ApiError.notFound('User not found');
+  return user;
+}
+
+export async function getByPhone(phone) {
+  const user = await User.findOne({ phone }).select(PUBLIC_USER_FIELDS);
+  if (!user) throw ApiError.notFound('No Connectify account uses that phone number yet');
   return user;
 }
 

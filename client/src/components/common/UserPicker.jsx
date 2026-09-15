@@ -81,7 +81,7 @@ export default function UserPicker({ multi = false, selected = [], onPick, onCha
               <Avatar name={u.displayName} src={u.avatarUrl} size={36} online={Boolean(online[u.id])} />
               <span className="picker__text">
                 <span className="picker__name">{u.displayName}</span>
-                <span className="muted">@{u.username}</span>
+                <span className="muted">@{u.username}{u.phone ? ` · ${u.phone}` : ''}</span>
               </span>
               {multi && selectedIds.has(u.id) && <Icon name="check" size={18} className="picker__check" />}
             </button>

@@ -1,4 +1,5 @@
 import './env.js';
+import fs from 'node:fs';
 import http from 'node:http';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
@@ -20,6 +21,7 @@ export async function startDB() {
 export async function stopDB() {
   await mongoose.disconnect();
   if (mongo) await mongo.stop();
+  fs.rmSync(process.env.UPLOAD_DIR, { recursive: true, force: true });
 }
 
 export async function clearDB() {
@@ -29,9 +31,13 @@ export async function clearDB() {
 
 export const buildApp = () => createApp();
 
+let phoneCounter = 0;
+
 export async function createUser(username, overrides = {}) {
+  phoneCounter += 1;
   const user = await User.create({
     username,
+    phone: `+1555${String(phoneCounter).padStart(7, '0')}`,
     email: `${username}@test.dev`,
     passwordHash: await User.hashPassword('password123'),
     displayName: username.charAt(0).toUpperCase() + username.slice(1),

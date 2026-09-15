@@ -8,6 +8,7 @@ const router = Router();
 
 router.use(requireAuth);
 router.get('/', controller.search);
+router.get('/lookup', controller.lookupByPhone);
 router.patch('/me', validateBody(updateProfileSchema), controller.updateMe);
 router.get('/:id', validateObjectIdParams('id'), controller.getOne);
 

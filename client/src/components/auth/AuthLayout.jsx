@@ -8,14 +8,14 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
           </span>
           Connectify
         </div>
-        <h1>Conversations that keep up with you.</h1>
+        <h1>Message anyone, instantly.</h1>
         <p>
-          Real-time messaging with presence, typing indicators and read receipts — built on React, Express,
-          MongoDB and Socket.IO.
+          Sign up with your phone number and chat one-to-one or in groups — with photos, videos, voice notes,
+          documents, typing indicators and read receipts.
         </p>
         <ul className="auth__points">
-          <li>Instant delivery over WebSockets</li>
-          <li>Direct and group conversations</li>
+          <li>Real-time delivery over WebSockets</li>
+          <li>Photos, videos, voice notes and files</li>
           <li>Works on desktop and mobile</li>
         </ul>
       </aside>

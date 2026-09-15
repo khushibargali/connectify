@@ -1,6 +1,6 @@
 # Deploying Connectify
 
-**Current live links (2026-09-15):** client on Vercel at <https://connectify-mihir6.vercel.app>, full app through a Cloudflare tunnel at <https://prozac-webpage-built-hamilton.trycloudflare.com>, source at <https://github.com/Mihirsingh03/connectify>. The Vercel project is linked to the repo, so every push to `main` redeploys the client. The tunnel is temporary; to make the API permanent follow Option A below and then set `VITE_API_URL` on the Vercel project to the Render URL.
+**Current live links (2026-09-15):** client on Vercel at <https://connectify-mihir6.vercel.app>, full app through a Cloudflare tunnel at <https://latitude-voip-cartoons-nowhere.trycloudflare.com>, source at <https://github.com/Mihirsingh03/connectify>. The Vercel project is linked to the repo, so every push to `main` redeploys the client. The tunnel is temporary; to make the API permanent follow Option A below and then set `VITE_API_URL` on the Vercel project to the Render URL.
 
 Connectify is two deployable pieces: the **API** (Express + Socket.IO, needs a long-running Node process because of WebSockets) and the **client** (static Vite build). The API can also serve the built client itself, so the simplest production setup is a single Node service.
 
@@ -14,7 +14,7 @@ The repo contains a [render.yaml](render.yaml) blueprint that builds the client,
 2. Accept the defaults and click **Apply**. A `JWT_SECRET` is generated for you.
 3. Wait for the build (3–5 minutes on the first deploy). Your app is at `https://connectify-<hash>.onrender.com`.
 
-Out of the box it runs in **demo mode**: an in-memory MongoDB is seeded on every start (users `alice`, `bob`, `carol`, `dave`, password `password123`). Data resets whenever the service restarts, which on the free tier happens after 15 minutes of inactivity.
+Out of the box it runs in **demo mode**: an in-memory MongoDB is seeded on every start (users `alice`, `bob`, `carol`, `dave`, password `password123`). Data and uploaded media reset whenever the service restarts, which on the free tier happens after 15 minutes of inactivity. For durable uploads attach a Render disk (or any host with persistent storage) and point `UPLOAD_DIR` at it.
 
 **Persistent data:** create a free MongoDB Atlas cluster (<https://www.mongodb.com/atlas>, M0 tier), allow access from anywhere (`0.0.0.0/0`) and add the connection string as `MONGO_URI` in the Render service's Environment tab. Set `SEED_DEMO=false` if you don't want demo users.
 
@@ -37,7 +37,7 @@ The image expects `MONGO_URI` (the in-memory fallback is a dev dependency and is
 2. On Vercel, import the repo with **Root Directory** = `client` (framework: Vite) and set the environment variable `VITE_API_URL=https://connectify.onrender.com`.
 3. On the API, set `CLIENT_ORIGIN` to include your Vercel domain (wildcards allowed, e.g. `https://*.vercel.app,https://connectify.vercel.app`).
 
-[client/vercel.json](client/vercel.json) contains the SPA rewrite so deep links such as `/c/<id>` work.
+[client/vercel.json](client/vercel.json) builds with `--mode vercel` (so `client/.env.vercel` supplies `VITE_API_URL` without affecting local builds) and contains the SPA rewrite so deep links such as `/c/<id>` work.
 
 ## Temporary public link from your own machine
 

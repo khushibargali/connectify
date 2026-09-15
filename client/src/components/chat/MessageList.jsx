@@ -28,26 +28,23 @@ function buildRows(items, meId) {
   return rows;
 }
 
-/** Read status for the last own message: "Seen", "Seen by N", or "Delivered". */
-function readStatus(conversation, message, meId) {
+/** WhatsApp ticks: ✓ sent · ✓✓ delivered to every other member · blue ✓✓ read by every other member. */
+function tickFor(conversation, message, meId) {
   const others = conversation.participants.filter((p) => p.user?.id !== meId);
-  const seenBy = others.filter((p) => p.lastReadAt && new Date(p.lastReadAt) >= new Date(message.createdAt));
-  if (conversation.type === 'direct') return seenBy.length > 0 ? 'Seen' : 'Delivered';
-  if (seenBy.length === 0) return 'Delivered';
-  return seenBy.length === others.length ? 'Seen by everyone' : `Seen by ${seenBy.length}`;
+  if (others.length === 0) return 'sent';
+  const at = new Date(message.createdAt);
+  if (others.every((p) => p.lastReadAt && new Date(p.lastReadAt) >= at)) return 'read';
+  if (others.every((p) => p.lastDeliveredAt && new Date(p.lastDeliveredAt) >= at)) return 'delivered';
+  return 'sent';
 }
 
-export default function MessageList({ conversation, bucket, meId, onLoadOlder, onDelete, onRetry, onDiscard }) {
+export default function MessageList({ conversation, bucket, meId, onLoadOlder, onDelete, onRetry, onDiscard, onOpenMedia }) {
   const listRef = useRef(null);
   const stickToBottom = useRef(true);
   const restoreFrom = useRef(null);
   const items = bucket?.items ?? [];
 
   const rows = useMemo(() => buildRows(items, meId), [items, meId]);
-  const lastOwn = useMemo(
-    () => [...items].reverse().find((m) => m.sender?.id === meId && !m.pending && !m.failed && m.type !== 'system' && !m.deletedAt),
-    [items, meId],
-  );
 
   useLayoutEffect(() => {
     const el = listRef.current;
@@ -86,10 +83,14 @@ export default function MessageList({ conversation, bucket, meId, onLoadOlder, o
         </div>
       )}
       {bucket?.loaded && !bucket.hasMore && items.length > 0 && (
-        <div className="messages__state muted">This is the beginning of your conversation.</div>
+        <div className="messages__state">
+          <span className="pill">🔒 Messages are stored securely on Connectify</span>
+        </div>
       )}
       {bucket?.loaded && items.length === 0 && (
-        <div className="messages__state muted">No messages yet — say hello 👋</div>
+        <div className="messages__state">
+          <span className="pill">No messages yet — say hello 👋</span>
+        </div>
       )}
       {rows.map((row) =>
         row.kind === 'day' ? (
@@ -102,10 +103,11 @@ export default function MessageList({ conversation, bucket, meId, onLoadOlder, o
             message={row.message}
             isMine={row.isMine}
             showMeta={row.showMeta}
-            status={lastOwn && row.message.id === lastOwn.id ? readStatus(conversation, row.message, meId) : null}
+            tick={row.isMine ? tickFor(conversation, row.message, meId) : null}
             onDelete={onDelete}
             onRetry={onRetry}
             onDiscard={onDiscard}
+            onOpenMedia={onOpenMedia}
           />
         ),
       )}

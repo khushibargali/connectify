@@ -17,6 +17,8 @@ const byActivity = (a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMes
 const byTime = (a, b) =>
   new Date(a.createdAt) - new Date(b.createdAt) || (a.id > b.id ? 1 : a.id < b.id ? -1 : 0);
 
+const latest = (a, b) => (!a || new Date(b) > new Date(a) ? b : a);
+
 const emptyBucket = () => ({ items: [], hasMore: true, loading: false, loaded: false, error: null });
 
 /** Union of two message lists, de-duplicated by id (and by clientId for optimistic rows), sorted. */
@@ -70,9 +72,27 @@ export function chatReducer(state, action) {
       return updateConversation(state, conversationId, (c) => ({
         ...c,
         unreadCount: isMe ? 0 : c.unreadCount,
-        participants: c.participants.map((p) => (p.user?.id === userId ? { ...p, lastReadAt: readAt } : p)),
+        participants: c.participants.map((p) =>
+          p.user?.id === userId ? { ...p, lastReadAt: readAt, lastDeliveredAt: latest(p.lastDeliveredAt, readAt) } : p,
+        ),
       }));
     }
+
+    case 'conversations/delivered': {
+      const { conversationId, userId, deliveredAt } = action;
+      return updateConversation(state, conversationId, (c) => ({
+        ...c,
+        participants: c.participants.map((p) =>
+          p.user?.id === userId ? { ...p, lastDeliveredAt: latest(p.lastDeliveredAt, deliveredAt) } : p,
+        ),
+      }));
+    }
+
+    case 'messages/progress':
+      return updateBucket(state, action.conversationId, (b) => ({
+        ...b,
+        items: b.items.map((m) => (m.id === action.clientId ? { ...m, progress: action.progress } : m)),
+      }));
 
     case 'messages/loading':
       return updateBucket(state, action.conversationId, (b) => ({ ...b, loading: true, error: null }));

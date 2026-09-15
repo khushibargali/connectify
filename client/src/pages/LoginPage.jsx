@@ -45,9 +45,10 @@ export default function LoginPage() {
     >
       <form onSubmit={submit} className="form" noValidate>
         <TextField
-          label="Username or email"
+          label="Phone number, username or email"
           name="identifier"
           autoComplete="username"
+          placeholder="+91 98765 43210"
           value={form.identifier}
           onChange={update}
           error={errors.identifier}
@@ -68,7 +69,7 @@ export default function LoginPage() {
         <Button type="submit" loading={busy} className="btn--block">
           Sign in
         </Button>
-        <p className="form__hint">Demo (when seeded): <code>alice</code> / <code>password123</code></p>
+        <p className="form__hint">Demo accounts: <code>alice</code>, <code>bob</code>, <code>carol</code>, <code>dave</code> · password <code>password123</code></p>
       </form>
     </AuthLayout>
   );

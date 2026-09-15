@@ -8,6 +8,8 @@ const participantSchema = new Schema(
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     /** Everything created after this timestamp is unread for this participant. */
     lastReadAt: { type: Date, default: () => new Date(0) },
+    /** Messages up to this timestamp have reached this participant's client (✓✓). */
+    lastDeliveredAt: { type: Date, default: () => new Date(0) },
     joinedAt: { type: Date, default: Date.now },
   },
   { _id: false, id: false },

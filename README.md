@@ -9,10 +9,10 @@ See [PLAN.md](PLAN.md) for the architecture, data model, API contract and delive
 | | URL |
 |---|---|
 | App (client on Vercel) | <https://connectify-mihir6.vercel.app> |
-| App (API + client, Cloudflare tunnel) | <https://prozac-webpage-built-hamilton.trycloudflare.com> |
+| App (API + client, Cloudflare tunnel) | <https://latitude-voip-cartoons-nowhere.trycloudflare.com> |
 | Source | <https://github.com/Mihirsingh03/connectify> |
 
-Demo accounts: `alice`, `bob`, `carol`, `dave` — password `password123`. Open two browsers with two accounts to see live delivery, typing and read receipts.
+Demo accounts: `alice`, `bob`, `carol`, `dave` (phones +1 555 000 0101 … 0104) — password `password123`. Or create your own account with any phone number. Open two browsers with two accounts to see live delivery, typing, media and read receipts.
 
 The Vercel link is behind **Vercel Authentication** (the team default for new projects) until it is switched off in Vercel → Project → Settings → Deployment Protection; until then only people logged into the Vercel team can open it. The tunnel link is fully public.
 
@@ -20,14 +20,15 @@ The API behind both links currently runs on the developer's machine through a Cl
 
 ## Features
 
-- JWT authentication (register, login, session restore)
+- WhatsApp-style accounts: sign up with your **phone number** (username auto-generated), log in with phone, username or email, start a chat by entering someone's number
 - Direct and group conversations, member management, admins
-- Real-time message delivery with acks and optimistic UI
-- Unread counts, read receipts, typing indicators, online presence
-- In-app toasts, tab badge and desktop notifications
-- Cursor-paginated message history, soft delete
+- **Photos, videos, voice notes and documents** with upload progress, captions, lightbox viewer and downloads
+- Real-time delivery with acks, optimistic UI and WhatsApp ticks (✓ sent, ✓✓ delivered, blue ✓✓ read)
+- Unread counts, typing indicators, online presence and last seen
+- Emoji picker, profile photo upload, in-app toasts, tab badge and desktop notifications
+- Cursor-paginated history, soft delete (removes the stored file too)
 - Responsive two-pane / single-pane layout
-- Integration tests for REST and sockets
+- 36 integration tests covering REST, uploads and sockets
 
 ## Quick start
 
@@ -68,6 +69,8 @@ Set `SEED_DEMO=true` in `server/.env` (or run `npm run seed` against a real Mong
 | JWT_EXPIRES_IN | 7d | Token lifetime |
 | CLIENT_ORIGIN | http://localhost:5173 | Allowed CORS origin(s), comma-separated |
 | SEED_DEMO | false | Seed demo users on startup if the DB is empty |
+| UPLOAD_DIR | server/uploads | Where photos, videos, voice notes and documents are stored |
+| MAX_UPLOAD_MB | 25 | Upload size limit |
 
 `client/.env` (optional)
 
@@ -106,8 +109,9 @@ client/
 
 All routes under `/api`; authenticated routes take `Authorization: Bearer <token>`.
 
-- `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`
-- `GET /users?q=`, `GET /users/:id`, `PATCH /users/me`
+- `POST /auth/register` (displayName, phone, password, optional username/email), `POST /auth/login` (phone, username or email), `GET /auth/me`, `POST /auth/logout`
+- `GET /users?q=` (name, username or phone digits), `GET /users/lookup?phone=`, `GET /users/:id`, `PATCH /users/me`
+- `POST /uploads` (multipart `file`; images, videos, audio, documents up to 25 MB) → attachment metadata to send with a message
 - `GET /conversations`, `POST /conversations/direct`, `POST /conversations/group`, `GET /conversations/:id`
 - `POST /conversations/:id/read`, `POST /conversations/:id/members`, `DELETE /conversations/:id/members/me`
 - `GET /conversations/:id/messages?before=&limit=`, `POST /conversations/:id/messages`
