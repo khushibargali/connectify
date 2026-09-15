@@ -4,6 +4,18 @@ A full-stack chat application: **React.js** front-end, **Express.js** REST API, 
 
 See [PLAN.md](PLAN.md) for the architecture, data model, API contract and delivery plan.
 
+## Live demo
+
+| | URL |
+|---|---|
+| App (client on Vercel) | <https://connectify-mihir6.vercel.app> |
+| App (API + client, Cloudflare tunnel) | <https://prozac-webpage-built-hamilton.trycloudflare.com> |
+| Source | <https://github.com/Mihirsingh03/connectify> |
+
+Demo accounts: `alice`, `bob`, `carol`, `dave` — password `password123`. Open two browsers with two accounts to see live delivery, typing and read receipts.
+
+The API behind both links currently runs on the developer's machine through a Cloudflare quick tunnel, so it is available while that machine is on; see [DEPLOY.md](DEPLOY.md) for the one-click Render setup that makes it permanent.
+
 ## Features
 
 - JWT authentication (register, login, session restore)
