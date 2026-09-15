@@ -71,6 +71,8 @@ export default function MessageBubble({ message, isMine, showMeta, tick, onDelet
   const deleted = Boolean(message.deletedAt);
   const isMedia = !deleted && message.type !== 'text' && message.attachment;
   const uploading = message.pending && typeof message.progress === 'number' && message.progress < 1;
+  // Time/ticks float over the picture only for photos and videos without a caption.
+  const overlayMeta = isMedia && ['image', 'video'].includes(message.type) && !message.content;
 
   return (
     <div className={`msg ${isMine ? 'msg--mine' : 'msg--theirs'} ${showMeta ? 'msg--first' : ''} ${message.failed ? 'msg--failed' : ''} ${isMedia ? `msg--${message.type}` : ''}`}>
@@ -90,7 +92,7 @@ export default function MessageBubble({ message, isMine, showMeta, tick, onDelet
           ) : (
             message.content && <span className="msg__text">{message.content}</span>
           )}
-          <span className={`msg__meta ${isMedia && !message.content ? 'msg__meta--overlay' : ''}`}>
+          <span className={`msg__meta ${overlayMeta ? 'msg__meta--overlay' : ''}`}>
             <time dateTime={message.createdAt}>{formatTime(message.createdAt)}</time>
             {isMine && !deleted && <Ticks message={message} tick={tick} />}
           </span>
