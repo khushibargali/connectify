@@ -1114,10 +1114,15 @@ code {
 .msg__media {
   display: block;
   width: 100%;
+  min-height: 120px; /* placeholder while the photo downloads, avoids layout jumps */
   border-radius: 6px;
   overflow: hidden;
-  background: #000;
+  background: #d1d7db;
   position: relative;
+}
+
+.msg__media--video {
+  background: #000;
 }
 
 .msg__media img,
