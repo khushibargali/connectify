@@ -1,17 +1,27 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { formatDayLabel, isSameDay } from '../../lib/format.js';
 import Spinner from '../common/Spinner.jsx';
 import MessageBubble from './MessageBubble.jsx';
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
-/** Turns a flat message list into rows with day dividers and sender grouping. */
-function buildRows(items, meId) {
+/** Turns a flat message list into rows with day dividers, an unread divider and sender grouping. */
+function buildRows(items, meId, unreadMarker) {
   const rows = [];
   let previous = null;
+  let unreadInserted = false;
+  const unreadCount = unreadMarker
+    ? items.filter((m) => m.sender?.id !== meId && new Date(m.createdAt) > new Date(unreadMarker)).length
+    : 0;
+
   for (const message of items) {
     if (!previous || !isSameDay(previous.createdAt, message.createdAt)) {
       rows.push({ kind: 'day', key: `day-${message.id}`, label: formatDayLabel(message.createdAt) });
+      previous = null;
+    }
+    if (!unreadInserted && unreadCount > 0 && message.sender?.id !== meId && new Date(message.createdAt) > new Date(unreadMarker)) {
+      rows.push({ kind: 'unread', key: 'unread-divider', count: unreadCount });
+      unreadInserted = true;
       previous = null;
     }
     const sameSender = previous && previous.sender?.id === message.sender?.id && previous.type !== 'system';
@@ -38,13 +48,28 @@ function tickFor(conversation, message, meId) {
   return 'sent';
 }
 
-export default function MessageList({ conversation, bucket, meId, onLoadOlder, onDelete, onRetry, onDiscard, onOpenMedia }) {
+export default function MessageList({
+  conversation,
+  bucket,
+  meId,
+  unreadMarker,
+  highlightId,
+  onLoadOlder,
+  onDelete,
+  onRetry,
+  onDiscard,
+  onOpenMedia,
+  onReact,
+  onReply,
+  onEdit,
+  onJumpTo,
+}) {
   const listRef = useRef(null);
   const stickToBottom = useRef(true);
   const restoreFrom = useRef(null);
   const items = bucket?.items ?? [];
 
-  const rows = useMemo(() => buildRows(items, meId), [items, meId]);
+  const rows = useMemo(() => buildRows(items, meId, unreadMarker), [items, meId, unreadMarker]);
 
   useLayoutEffect(() => {
     const el = listRef.current;
@@ -56,6 +81,16 @@ export default function MessageList({ conversation, bucket, meId, onLoadOlder, o
       el.scrollTop = el.scrollHeight;
     }
   }, [rows]);
+
+  // Scroll a quoted or searched message into view when asked.
+  useEffect(() => {
+    if (!highlightId) return;
+    const target = listRef.current?.querySelector(`[data-message-id="${highlightId}"]`);
+    if (target) {
+      stickToBottom.current = false;
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, [highlightId, rows]);
 
   const handleScroll = () => {
     const el = listRef.current;
@@ -92,25 +127,43 @@ export default function MessageList({ conversation, bucket, meId, onLoadOlder, o
           <span className="pill">No messages yet — say hello 👋</span>
         </div>
       )}
-      {rows.map((row) =>
-        row.kind === 'day' ? (
-          <div key={row.key} className="day-divider">
-            <span>{row.label}</span>
-          </div>
-        ) : (
+      {rows.map((row) => {
+        if (row.kind === 'day') {
+          return (
+            <div key={row.key} className="day-divider">
+              <span>{row.label}</span>
+            </div>
+          );
+        }
+        if (row.kind === 'unread') {
+          return (
+            <div key={row.key} className="unread-divider">
+              <span>
+                {row.count} unread message{row.count === 1 ? '' : 's'}
+              </span>
+            </div>
+          );
+        }
+        return (
           <MessageBubble
             key={row.key}
             message={row.message}
             isMine={row.isMine}
+            meId={meId}
             showMeta={row.showMeta}
             tick={row.isMine ? tickFor(conversation, row.message, meId) : null}
+            highlighted={row.message.id === highlightId}
             onDelete={onDelete}
             onRetry={onRetry}
             onDiscard={onDiscard}
             onOpenMedia={onOpenMedia}
+            onReact={onReact}
+            onReply={onReply}
+            onEdit={onEdit}
+            onJumpTo={onJumpTo}
           />
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }

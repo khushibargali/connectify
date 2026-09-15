@@ -146,6 +146,22 @@ describe('Socket.IO real-time layer', () => {
     assert.equal(rejected.ok, false);
   });
 
+  it('broadcasts reactions and edits as message:updated', async () => {
+    const a = track(await connectReady(srv.url, alice.token));
+    const b = track(await connectReady(srv.url, bob.token));
+    const sent = await emitWithAck(a, 'message:send', { conversationId: conversation.id, content: 'react here' });
+
+    const reacted = once(b, 'message:updated');
+    await request(srv.app).put(`/api/messages/${sent.message.id}/reactions`).set(auth(alice.token)).send({ emoji: '🔥' });
+    assert.deepEqual((await reacted).reactions.map((r) => r.emoji), ['🔥']);
+
+    const edited = once(b, 'message:updated');
+    await request(srv.app).patch(`/api/messages/${sent.message.id}`).set(auth(alice.token)).send({ content: 'edited text' });
+    const payload = await edited;
+    assert.equal(payload.content, 'edited text');
+    assert.ok(payload.editedAt);
+  });
+
   it('returns error acks for invalid payloads', async () => {
     const a = track(await connectReady(srv.url, alice.token));
     const empty = await emitWithAck(a, 'message:send', { conversationId: conversation.id, content: '  ' });

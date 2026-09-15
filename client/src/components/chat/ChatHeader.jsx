@@ -4,7 +4,7 @@ import { formatLastSeen } from '../../lib/format.js';
 import Avatar from '../common/Avatar.jsx';
 import Icon from '../common/Icon.jsx';
 
-export default function ChatHeader({ conversation, meId, online, lastSeen, typingUsers, onInfo }) {
+export default function ChatHeader({ conversation, meId, online, lastSeen, typingUsers, muted, onInfo, onSearch }) {
   const title = conversationTitle(conversation, meId);
   const other = otherParticipant(conversation, meId);
 
@@ -30,7 +30,7 @@ export default function ChatHeader({ conversation, meId, online, lastSeen, typin
       </Link>
       <Avatar
         name={title}
-        src={other?.avatarUrl}
+        src={other ? other.avatarUrl : conversation.avatarUrl}
         group={conversation.type === 'group'}
         online={other ? Boolean(online[other.id]) : undefined}
         size={40}
@@ -42,10 +42,16 @@ export default function ChatHeader({ conversation, meId, online, lastSeen, typin
         onClick={onInfo}
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onInfo()}
       >
-        <h2>{title}</h2>
+        <h2>
+          {title}
+          {muted && <Icon name="bell-off" size={14} className="chat__muted" />}
+        </h2>
         <p className={subtitleClass}>{subtitle}</p>
       </div>
-      <button type="button" className="icon-btn" onClick={onInfo} aria-label="Conversation details">
+      <button type="button" className="icon-btn" onClick={onSearch} aria-label="Search messages" title="Search">
+        <Icon name="search" />
+      </button>
+      <button type="button" className="icon-btn" onClick={onInfo} aria-label="Conversation details" title="Details">
         <Icon name="info" />
       </button>
     </header>

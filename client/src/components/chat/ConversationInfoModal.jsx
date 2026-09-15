@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { uploadsApi } from '../../api/uploads.api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useChat } from '../../context/ChatContext.jsx';
 import { conversationTitle, isAdmin, participantUsers } from '../../lib/conversation.js';
@@ -12,31 +13,65 @@ import UserPicker from '../common/UserPicker.jsx';
 
 export default function ConversationInfoModal({ conversation, onClose }) {
   const { user } = useAuth();
-  const { online, lastSeen, addMembers, leaveGroup } = useChat();
+  const { online, lastSeen, addMembers, leaveGroup, updateGroup, removeMember, setMuted } = useChat();
   const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState([]);
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(conversation.name || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const photoRef = useRef(null);
 
   const members = participantUsers(conversation);
   const memberIds = members.map((m) => m.id);
   const amAdmin = isAdmin(conversation, user.id);
   const isGroup = conversation.type === 'group';
+  const other = members.find((m) => m.id !== user.id);
+  const me = conversation.participants.find((p) => p.user?.id === user.id);
+  const title = conversationTitle(conversation, user.id);
 
-  const confirmAdd = async () => {
-    if (selected.length === 0) return;
+  const run = async (action) => {
     setBusy(true);
     setError('');
     try {
-      await addMembers(conversation.id, selected.map((u) => u.id));
-      setSelected([]);
-      setAdding(false);
+      await action();
     } catch (err) {
       setError(err.message);
     } finally {
       setBusy(false);
     }
+  };
+
+  const confirmAdd = () =>
+    selected.length > 0 &&
+    run(async () => {
+      await addMembers(conversation.id, selected.map((u) => u.id));
+      setSelected([]);
+      setAdding(false);
+    });
+
+  const saveName = (e) => {
+    e.preventDefault();
+    const next = name.trim();
+    if (!next || next === conversation.name) return setRenaming(false);
+    return run(async () => {
+      await updateGroup(conversation.id, { name: next });
+      setRenaming(false);
+    });
+  };
+
+  const changePhoto = (file) => {
+    if (!file) return;
+    run(async () => {
+      const stored = await uploadsApi.upload(file);
+      await updateGroup(conversation.id, { avatarUrl: stored.url });
+    });
+  };
+
+  const confirmRemove = (member) => {
+    if (!window.confirm(`Remove ${member.displayName} from "${conversation.name}"?`)) return;
+    run(() => removeMember(conversation.id, member.id));
   };
 
   const confirmLeave = async () => {
@@ -55,16 +90,51 @@ export default function ConversationInfoModal({ conversation, onClose }) {
   return (
     <Modal title={isGroup ? 'Group details' : 'Contact details'} onClose={onClose}>
       <div className="info__head">
-        <Avatar name={conversationTitle(conversation, user.id)} group={isGroup} size={64} src={!isGroup ? members.find((m) => m.id !== user.id)?.avatarUrl : ''} />
-        <div>
-          <h3>{conversationTitle(conversation, user.id)}</h3>
-          <p className="muted">{isGroup ? `${members.length} members` : `@${members.find((m) => m.id !== user.id)?.username || ''}`}</p>
+        {isGroup && amAdmin ? (
+          <button type="button" className="avatar-upload" onClick={() => photoRef.current?.click()} disabled={busy} aria-label="Change group photo">
+            <Avatar name={title} group size={64} src={conversation.avatarUrl} />
+            <span className="avatar-upload__badge">
+              <Icon name="camera" size={14} />
+            </span>
+          </button>
+        ) : (
+          <Avatar name={title} group={isGroup} size={64} src={isGroup ? conversation.avatarUrl : other?.avatarUrl} />
+        )}
+        <input ref={photoRef} type="file" accept="image/*" hidden onChange={(e) => { changePhoto(e.target.files?.[0]); e.target.value = ''; }} />
+        <div className="info__head-text">
+          {renaming ? (
+            <form className="info__rename" onSubmit={saveName}>
+              <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus aria-label="Group name" />
+              <Button type="submit" size="sm" loading={busy}>
+                Save
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setRenaming(false)}>
+                Cancel
+              </Button>
+            </form>
+          ) : (
+            <h3>
+              {title}
+              {isGroup && amAdmin && (
+                <button type="button" className="icon-btn icon-btn--sm" onClick={() => setRenaming(true)} aria-label="Rename group" title="Rename">
+                  <Icon name="edit-2" size={14} />
+                </button>
+              )}
+            </h3>
+          )}
+          <p className="muted">{isGroup ? `${members.length} members` : `${other?.phone || ''}${other?.username ? ` · @${other.username}` : ''}`}</p>
         </div>
       </div>
 
-      {!isGroup && members.find((m) => m.id !== user.id)?.bio && (
-        <p className="info__bio">{members.find((m) => m.id !== user.id).bio}</p>
-      )}
+      {!isGroup && other?.bio && <p className="info__bio">{other.bio}</p>}
+
+      <label className="switch-row">
+        <span>
+          <Icon name="bell-off" size={16} /> Mute notifications
+        </span>
+        <input type="checkbox" checked={Boolean(me?.muted)} disabled={busy} onChange={(e) => run(() => setMuted(conversation.id, e.target.checked))} />
+        <span className="switch" aria-hidden="true" />
+      </label>
 
       {error && <p className="form__error" role="alert">{error}</p>}
 
@@ -102,6 +172,11 @@ export default function ConversationInfoModal({ conversation, onClose }) {
                   <span className="muted">{m.phone ? `${m.phone} · ` : ''}{online[m.id] ? 'Online' : formatLastSeen(lastSeen[m.id] || m.lastSeenAt)}</span>
                 </span>
                 {isAdmin(conversation, m.id) && <span className="tag">Admin</span>}
+                {isGroup && amAdmin && m.id !== user.id && (
+                  <button type="button" className="icon-btn icon-btn--sm" onClick={() => confirmRemove(m)} disabled={busy} aria-label={`Remove ${m.displayName}`} title="Remove from group">
+                    <Icon name="user-minus" size={16} />
+                  </button>
+                )}
               </li>
             ))}
           </ul>

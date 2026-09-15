@@ -31,6 +31,15 @@ docker run -p 4000:4000 \
 
 The image expects `MONGO_URI` (the in-memory fallback is a dev dependency and is not included). Railway and Fly.io both detect the Dockerfile automatically.
 
+## Option B½ — Docker Compose (MongoDB included)
+
+```bash
+export JWT_SECRET=$(openssl rand -hex 32)
+docker compose up --build
+```
+
+Starts MongoDB 7 and the app on <http://localhost:4000> with persistent volumes for data and uploads.
+
 ## Option C — Client on Vercel, API elsewhere
 
 1. Deploy the API with Option A or B and note its URL, e.g. `https://connectify.onrender.com`.

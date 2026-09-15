@@ -4,6 +4,8 @@ import { toJSONOptions } from '../utils/mongo.js';
 const { Schema } = mongoose;
 
 export const MESSAGE_TYPES = ['text', 'image', 'video', 'audio', 'file', 'system'];
+/** Text messages can be edited for this long after sending (WhatsApp uses 15 minutes). */
+export const EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 const attachmentSchema = new Schema(
   {
@@ -19,6 +21,14 @@ const attachmentSchema = new Schema(
   { _id: false, id: false },
 );
 
+const reactionSchema = new Schema(
+  {
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    emoji: { type: String, required: true, maxlength: 16 },
+  },
+  { _id: false, id: false },
+);
+
 const messageSchema = new Schema(
   {
     conversation: { type: Schema.Types.ObjectId, ref: 'Conversation', required: true },
@@ -27,6 +37,11 @@ const messageSchema = new Schema(
     /** Text body, or the caption for media messages. */
     content: { type: String, trim: true, maxlength: 4000, default: '' },
     attachment: { type: attachmentSchema, default: undefined },
+    /** Quoted message (must belong to the same conversation). */
+    replyTo: { type: Schema.Types.ObjectId, ref: 'Message', default: null },
+    /** One reaction per user; sending the same emoji again removes it. */
+    reactions: { type: [reactionSchema], default: [] },
+    editedAt: { type: Date, default: null },
     /** Client-generated id used to reconcile optimistic messages. */
     clientId: { type: String },
     deletedAt: { type: Date, default: null },

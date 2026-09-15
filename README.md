@@ -25,10 +25,14 @@ The API behind both links currently runs on the developer's machine through a Cl
 - **Photos, videos, voice notes and documents** with upload progress, captions, lightbox viewer and downloads
 - Real-time delivery with acks, optimistic UI and WhatsApp ticks (✓ sent, ✓✓ delivered, blue ✓✓ read)
 - Unread counts, typing indicators, online presence and last seen
-- Emoji picker, profile photo upload, in-app toasts, tab badge and desktop notifications
+- Message **reactions**, **reply with quote** (tap the quote to jump to the original), **edit** within 15 minutes, in-chat **search** that jumps to results, and an "N unread messages" divider
+- Group admin tools: rename, group photo, add/remove members; per-chat **mute**
+- Emoji picker, profile photo upload, **dark mode**, in-app toasts, tab badge and desktop notifications
 - Cursor-paginated history, soft delete (removes the stored file too)
 - Responsive two-pane / single-pane layout
-- 36 integration tests covering REST, uploads and sockets
+- 43 integration tests covering REST, uploads and sockets, run on every push by GitHub Actions; Docker Compose stack with MongoDB
+
+[![CI](https://github.com/khushibargali/connectify/actions/workflows/ci.yml/badge.svg)](https://github.com/khushibargali/connectify/actions/workflows/ci.yml)
 
 ## Quick start
 
@@ -45,6 +49,13 @@ Open http://localhost:5173, register two users in two browser windows and start 
 ### Demo data
 
 Set `SEED_DEMO=true` in `server/.env` (or run `npm run seed` against a real MongoDB). Four users are created — `alice`, `bob`, `carol`, `dave` — all with password `password123`, plus a direct chat and a group.
+
+### Docker
+
+```bash
+export JWT_SECRET=$(openssl rand -hex 32)
+docker compose up --build        # MongoDB + app on http://localhost:4000
+```
 
 ## Scripts
 
@@ -115,7 +126,8 @@ All routes under `/api`; authenticated routes take `Authorization: Bearer <token
 - `GET /conversations`, `POST /conversations/direct`, `POST /conversations/group`, `GET /conversations/:id`
 - `POST /conversations/:id/read`, `POST /conversations/:id/members`, `DELETE /conversations/:id/members/me`
 - `GET /conversations/:id/messages?before=&limit=`, `POST /conversations/:id/messages`
-- `DELETE /messages/:id`
+- `PUT /messages/:id/reactions` (toggle emoji), `PATCH /messages/:id` (edit, 15-minute window), `DELETE /messages/:id`
+- `GET /conversations/:id/messages/search?q=`, `PATCH /conversations/:id` (rename / group photo, admins), `DELETE /conversations/:id/members/:userId` (admins), `POST /conversations/:id/mute`
 
 Socket events are documented in [PLAN.md](PLAN.md#7-real-time-protocol-socketio).
 

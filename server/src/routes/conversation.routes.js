@@ -7,7 +7,9 @@ import {
   addMembersSchema,
   createDirectSchema,
   createGroupSchema,
+  muteSchema,
   sendMessageSchema,
+  updateConversationSchema,
 } from '../validation/schemas.js';
 
 const router = Router();
@@ -20,11 +22,15 @@ router.post('/direct', validateBody(createDirectSchema), conversations.createDir
 router.post('/group', validateBody(createGroupSchema), conversations.createGroup);
 
 router.get('/:id', withId, conversations.getOne);
+router.patch('/:id', withId, validateBody(updateConversationSchema), conversations.update);
 router.post('/:id/read', withId, conversations.markRead);
+router.post('/:id/mute', withId, validateBody(muteSchema), conversations.mute);
 router.post('/:id/members', withId, validateBody(addMembersSchema), conversations.addMembers);
 router.delete('/:id/members/me', withId, conversations.leave);
+router.delete('/:id/members/:userId', validateObjectIdParams('id', 'userId'), conversations.removeMember);
 
 router.get('/:id/messages', withId, messages.list);
+router.get('/:id/messages/search', withId, messages.search);
 router.post('/:id/messages', withId, validateBody(sendMessageSchema), messages.send);
 
 export default router;

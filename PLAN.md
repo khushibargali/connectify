@@ -40,6 +40,13 @@ v1.1 (WhatsApp-style, see §14):
 - [x] Delivery receipts and WhatsApp ticks (✓ / ✓✓ / blue ✓✓)
 - [x] Emoji picker, profile photo upload, WhatsApp-style theme
 
+v1.2 (see §15):
+
+- [x] Reactions, reply with quote, edit within 15 minutes, in-chat search, unread divider
+- [x] Group rename/photo/remove member, per-chat mute
+- [x] Dark mode
+- [x] GitHub Actions CI and Docker Compose
+
 Out of scope for v1 (see roadmap): media uploads, message reactions, end-to-end encryption, push notifications, horizontal scaling of Socket.IO.
 
 ## 3. Architecture
@@ -123,7 +130,7 @@ All routes are prefixed with `/api`. Authenticated routes expect `Authorization:
 
 | Method | Path | Auth | Body / Query | Result |
 |--------|------|------|--------------|--------|
-| POST | /auth/register | – | username, email, password, displayName? | 201 `{ user, token }` |
+| POST | /auth/register | – | displayName, phone, password, username?, email? | 201 `{ user, token }` |
 | POST | /auth/login | – | identifier (username or email), password | `{ user, token }` |
 | GET | /auth/me | ✓ | | `{ user }` |
 | POST | /auth/logout | ✓ | | `{ ok }` |
@@ -248,3 +255,15 @@ Key behaviours:
 **Delivery receipts.** Each participant now carries `lastDeliveredAt` next to `lastReadAt`. Clients emit `conversation:delivered` on receipt, and the server marks everything delivered when a user connects; `conversation:delivered { conversationId, userId, deliveredAt }` is broadcast to the room. Ticks: ✓ sent (acked), ✓✓ delivered to all other members, blue ✓✓ read by all other members.
 
 **Verification.** 36 server tests (auth by phone, lookup, uploads, media messages, socket media, delivery receipts) and a browser run covering sign-up by phone, chat by number, photo + caption, document, lightbox, emoji, live photo receipt, blue ticks, profile photo upload and mobile layout.
+
+## 15. v1.2 — conversation features and engineering (2026-09-15)
+
+- **Reactions:** `Message.reactions [{ user, emoji }]`, one per user, toggled by `PUT /messages/:id/reactions` (same emoji removes, different emoji replaces, validated as emoji characters). Broadcast as `message:updated`.
+- **Replies:** `Message.replyTo` must belong to the same conversation; populated with sender, type, content and attachment name so quotes render without extra requests. Tapping a quote loads older pages until the original is in memory, then scrolls and highlights it.
+- **Edits:** text only, sender only, within 15 minutes (`EDIT_WINDOW_MS`); sets `editedAt`, broadcast as `message:updated`.
+- **Search:** `GET /conversations/:id/messages/search?q=` matches text, captions and file names (case-insensitive, escaped regex), newest first.
+- **Unread divider:** the client remembers the reader's `lastReadAt` when a chat with unread messages is opened and inserts "N unread messages" before the first newer message from others.
+- **Groups:** `PATCH /conversations/:id` (name, photo) and `DELETE /conversations/:id/members/:userId` for admins; both write a system message and broadcast `conversation:updated` (removed members get `conversation:removed` and leave the room).
+- **Mute:** per-participant flag; the client suppresses toasts and desktop notifications for muted chats while still counting unread.
+- **Dark mode:** CSS variable theme switched with `data-theme`, defaulting to the OS preference and persisted in localStorage.
+- **Engineering:** GitHub Actions runs the 43-test suite and the client build on every push; `docker-compose.yml` starts MongoDB and the app with persistent volumes for data and uploads.

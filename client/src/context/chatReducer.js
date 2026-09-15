@@ -152,6 +152,20 @@ export function chatReducer(state, action) {
       );
     }
 
+    case 'messages/updated': {
+      const { message } = action;
+      const conversationId = message.conversation;
+      const next = state.messages[conversationId]
+        ? updateBucket(state, conversationId, (b) => ({
+            ...b,
+            items: b.items.map((m) => (m.id === message.id ? { ...m, ...message } : m)),
+          }))
+        : state;
+      return updateConversation(next, conversationId, (c) =>
+        c.lastMessage?.id === message.id ? { ...c, lastMessage: { ...c.lastMessage, ...message } } : c,
+      );
+    }
+
     case 'messages/reset':
       return { ...state, messages: {} };
 

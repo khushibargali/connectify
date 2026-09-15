@@ -9,6 +9,7 @@ import ConversationInfoModal from './ConversationInfoModal.jsx';
 import Lightbox from './Lightbox.jsx';
 import MessageInput from './MessageInput.jsx';
 import MessageList from './MessageList.jsx';
+import SearchPanel from './SearchPanel.jsx';
 import TypingIndicator from './TypingIndicator.jsx';
 
 export default function ChatWindow({ conversationId }) {
@@ -27,12 +28,28 @@ export default function ChatWindow({ conversationId }) {
     discardMessage,
     sendTyping,
     deleteMessage,
+    reactToMessage,
+    editMessage,
+    searchMessages,
+    jumpToMessage,
   } = useChat();
   const [showInfo, setShowInfo] = useState(false);
   const [media, setMedia] = useState(null);
+  const [replyTo, setReplyTo] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [highlightId, setHighlightId] = useState(null);
+  const [unreadMarker, setUnreadMarker] = useState(undefined); // undefined = not decided yet
 
   const conversation = conversations.find((c) => c.id === conversationId);
   const bucket = messages[conversationId];
+  const me = conversation?.participants.find((p) => p.user?.id === user.id);
+
+  // Remember where "unread" started when the chat was opened, before the read marker moves.
+  useEffect(() => {
+    if (!conversation || unreadMarker !== undefined) return;
+    setUnreadMarker(conversation.unreadCount > 0 ? me?.lastReadAt || null : null);
+  }, [conversation, me, unreadMarker]);
 
   // Load the first page once per conversation (and again after a reconnect reset).
   useEffect(() => {
@@ -52,6 +69,13 @@ export default function ChatWindow({ conversationId }) {
     return () => document.removeEventListener('visibilitychange', read);
   }, [conversation, conversationId, unread, markRead]);
 
+  // Highlight fades after a moment.
+  useEffect(() => {
+    if (!highlightId) return undefined;
+    const timer = setTimeout(() => setHighlightId(null), 2500);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
+
   const typingUsers = useMemo(() => {
     if (!conversation) return [];
     const ids = Object.keys(typing[conversationId] || {}).filter((id) => id !== user.id);
@@ -63,6 +87,16 @@ export default function ChatWindow({ conversationId }) {
     if (!oldest) return;
     loadMessages(conversationId, { before: oldest.id }).catch(() => {});
   }, [bucket, conversationId, loadMessages]);
+
+  const jumpTo = useCallback(
+    async (messageId) => {
+      const found = await jumpToMessage(conversationId, messageId).catch(() => false);
+      if (found) setHighlightId(messageId);
+    },
+    [conversationId, jumpToMessage],
+  );
+
+  const search = useCallback((q) => searchMessages(conversationId, q), [conversationId, searchMessages]);
 
   if (!conversationsLoaded) {
     return (
@@ -92,22 +126,51 @@ export default function ChatWindow({ conversationId }) {
         online={online}
         lastSeen={lastSeen}
         typingUsers={typingUsers}
+        muted={Boolean(me?.muted)}
         onInfo={() => setShowInfo(true)}
+        onSearch={() => setSearchOpen((v) => !v)}
       />
+      {searchOpen && (
+        <SearchPanel
+          onSearch={search}
+          onPick={(message) => jumpTo(message.id)}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
       <MessageList
         conversation={conversation}
         bucket={bucket}
         meId={user.id}
+        unreadMarker={unreadMarker || null}
+        highlightId={highlightId}
         onLoadOlder={loadOlder}
         onDelete={(message) => deleteMessage(message).catch((err) => console.error(err))}
         onRetry={retryMessage}
         onDiscard={discardMessage}
         onOpenMedia={setMedia}
+        onReact={(message, emoji) => reactToMessage(message, emoji).catch((err) => console.error(err))}
+        onReply={(message) => {
+          setEditing(null);
+          setReplyTo(message);
+        }}
+        onEdit={(message) => {
+          setReplyTo(null);
+          setEditing(message);
+        }}
+        onJumpTo={jumpTo}
       />
       <TypingIndicator users={typingUsers} />
       <MessageInput
         key={conversationId}
-        onSend={(input) => sendMessage(conversationId, input)}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
+        editing={editing}
+        onCancelEdit={() => setEditing(null)}
+        onEdit={(message, content) => editMessage(message, content).then(() => setEditing(null))}
+        onSend={(input) => {
+          sendMessage(conversationId, { ...input, replyTo });
+          setReplyTo(null);
+        }}
         onTyping={(isTyping) => sendTyping(conversationId, isTyping)}
       />
       {showInfo && <ConversationInfoModal conversation={conversation} onClose={() => setShowInfo(false)} />}

@@ -166,6 +166,54 @@ export async function leave(conversationId, userId) {
   return { conversation: serialize(conversation, 0), message };
 }
 
+/** Admins can rename a group or change its photo. */
+export async function update(conversationId, userId, { name, avatarUrl }) {
+  const conversation = await loadForMember(conversationId, userId);
+  if (conversation.type !== 'group') throw ApiError.badRequest('Only groups can be edited');
+  if (!conversation.isAdmin(userId)) throw ApiError.forbidden('Only group admins can edit the group');
+
+  const changes = [];
+  if (name !== undefined && name !== conversation.name) {
+    conversation.name = name;
+    changes.push(`renamed the group to "${name}"`);
+  }
+  if (avatarUrl !== undefined && avatarUrl !== conversation.avatarUrl) {
+    conversation.avatarUrl = avatarUrl;
+    changes.push(avatarUrl ? 'changed the group photo' : 'removed the group photo');
+  }
+  if (changes.length === 0) throw ApiError.badRequest('Nothing changed');
+
+  const message = await appendSystemMessage(conversation, userId, changes.join(' and '));
+  await conversation.populate(CONVERSATION_POPULATE);
+  return { conversation: serialize(conversation, 0), message };
+}
+
+/** Admins can remove another member from a group. */
+export async function removeMember(conversationId, adminId, memberId) {
+  const conversation = await loadForMember(conversationId, adminId);
+  if (conversation.type !== 'group') throw ApiError.badRequest('Members can only be removed from groups');
+  if (!conversation.isAdmin(adminId)) throw ApiError.forbidden('Only group admins can remove members');
+  if (String(memberId) === String(adminId)) throw ApiError.badRequest('Use "leave" to remove yourself');
+  if (!conversation.hasParticipant(memberId)) throw ApiError.notFound('That user is not a member');
+
+  const removed = await User.findById(memberId).select('displayName');
+  conversation.participants = conversation.participants.filter((p) => idOf(p.user) !== String(memberId));
+  conversation.admins = conversation.admins.filter((admin) => idOf(admin) !== String(memberId));
+  const message = await appendSystemMessage(conversation, adminId, `removed ${removed?.displayName || 'a member'}`);
+  await conversation.populate(CONVERSATION_POPULATE);
+  return { conversation: serialize(conversation, 0), message, removedId: String(memberId) };
+}
+
+/** Mutes or unmutes notifications for one member only. */
+export async function setMuted(conversationId, userId, muted) {
+  const result = await Conversation.updateOne(
+    { _id: conversationId, 'participants.user': userId },
+    { $set: { 'participants.$.muted': muted } },
+  );
+  if (result.matchedCount === 0) throw ApiError.notFound('Conversation not found');
+  return getForUser(conversationId, userId);
+}
+
 /** Moves the member's read marker forward (reading implies delivery). Returns the timestamp used. */
 export async function markRead(conversationId, userId) {
   const readAt = new Date();

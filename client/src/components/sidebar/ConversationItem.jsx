@@ -2,12 +2,14 @@ import { Link } from 'react-router-dom';
 import { conversationTitle, otherParticipant, previewText } from '../../lib/conversation.js';
 import { formatConversationTime } from '../../lib/format.js';
 import Avatar from '../common/Avatar.jsx';
+import Icon from '../common/Icon.jsx';
 
 export default function ConversationItem({ conversation, active, meId, online, typing }) {
   const title = conversationTitle(conversation, meId);
   const other = otherParticipant(conversation, meId);
   const someoneTyping = Object.keys(typing || {}).some((id) => id !== meId);
   const unread = conversation.unreadCount || 0;
+  const muted = conversation.participants.some((p) => p.user?.id === meId && p.muted);
 
   return (
     <li>
@@ -17,7 +19,7 @@ export default function ConversationItem({ conversation, active, meId, online, t
       >
         <Avatar
           name={title}
-          src={other?.avatarUrl}
+          src={other ? other.avatarUrl : conversation.avatarUrl}
           group={conversation.type === 'group'}
           online={other ? Boolean(online[other.id]) : undefined}
           size={44}
@@ -35,7 +37,8 @@ export default function ConversationItem({ conversation, active, meId, online, t
             <span className="conv-item__preview">
               {someoneTyping ? <em className="typing-text">typing…</em> : previewText(conversation, meId)}
             </span>
-            {unread > 0 && <span className="badge">{unread > 99 ? '99+' : unread}</span>}
+            {muted && <Icon name="bell-off" size={14} className="conv-item__muted" />}
+            {unread > 0 && <span className={`badge ${muted ? 'badge--muted' : ''}`}>{unread > 99 ? '99+' : unread}</span>}
           </div>
         </div>
       </Link>

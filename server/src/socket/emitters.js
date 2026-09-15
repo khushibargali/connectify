@@ -21,6 +21,22 @@ export function messageCreated(io, message, conversation) {
   }
 }
 
+/** Reactions, edits: the whole message is re-sent so clients can replace it in place. */
+export function messageUpdated(io, message) {
+  if (!io) return;
+  io.to(conversationRoom(idOf(message.conversation))).emit('message:updated', message);
+}
+
+export function memberRemoved(io, conversation, message, removedId) {
+  if (!io) return;
+  const conversationId = idOf(conversation);
+  const room = conversationRoom(conversationId);
+  io.in(userRoom(removedId)).socketsLeave(room);
+  io.to(userRoom(removedId)).emit('conversation:removed', { conversationId });
+  io.to(room).emit('conversation:updated', conversation);
+  if (message) io.to(room).emit('message:new', message);
+}
+
 export function messageDeleted(io, message) {
   if (!io) return;
   const conversationId = idOf(message.conversation);

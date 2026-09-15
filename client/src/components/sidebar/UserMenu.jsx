@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { useTheme } from '../../context/ThemeContext.jsx';
 import { useNotificationPermission } from '../../hooks/useNotificationPermission.js';
 import Avatar from '../common/Avatar.jsx';
 import Icon from '../common/Icon.jsx';
@@ -7,6 +8,7 @@ import Icon from '../common/Icon.jsx';
 export default function UserMenu({ onProfile }) {
   const { user, logout } = useAuth();
   const { supported, permission, request } = useNotificationPermission();
+  const { theme, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -39,6 +41,9 @@ export default function UserMenu({ onProfile }) {
           </div>
           <button type="button" role="menuitem" className="menu__item" onClick={() => { setOpen(false); onProfile(); }}>
             <Icon name="edit" size={16} /> Edit profile
+          </button>
+          <button type="button" role="menuitem" className="menu__item" onClick={() => { toggleTheme(); setOpen(false); }}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} /> {theme === 'dark' ? 'Light mode' : 'Dark mode'}
           </button>
           {supported && (
             <button

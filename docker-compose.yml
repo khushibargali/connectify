@@ -1,0 +1,32 @@
+# One-command local stack: MongoDB + Connectify (API serving the built client).
+#   export JWT_SECRET=$(openssl rand -hex 32)
+#   docker compose up --build
+# then open http://localhost:4000 (demo users are seeded on first start).
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      MONGO_URI: mongodb://mongo:27017/connectify
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET, e.g. export JWT_SECRET=$(openssl rand -hex 32)}
+      CLIENT_ORIGIN: http://localhost:4000
+      SEED_DEMO: 'true'
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      - mongo
+
+volumes:
+  mongo-data:
+  uploads:

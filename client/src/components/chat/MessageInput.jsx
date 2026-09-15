@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACCEPT_DOCS, ACCEPT_MEDIA, MAX_UPLOAD_MB, fileKind, formatBytes, formatDuration } from '../../lib/media.js';
+import { ACCEPT_DOCS, ACCEPT_MEDIA, MAX_UPLOAD_MB, fileKind, formatBytes, formatDuration, messageSummary } from '../../lib/media.js';
 import EmojiPicker from '../common/EmojiPicker.jsx';
 import Icon from '../common/Icon.jsx';
 
@@ -20,7 +20,7 @@ function pickRecorderMime() {
  * WhatsApp-style composer: emoji picker, attachments (photos/videos/documents) with preview,
  * text with Enter-to-send, and voice notes recorded with MediaRecorder.
  */
-export default function MessageInput({ onSend, onTyping, disabled = false }) {
+export default function MessageInput({ onSend, onTyping, disabled = false, replyTo = null, onCancelReply, editing = null, onCancelEdit, onEdit }) {
   const [value, setValue] = useState('');
   const [attachment, setAttachment] = useState(null);
   const [preview, setPreview] = useState('');
@@ -37,6 +37,26 @@ export default function MessageInput({ onSend, onTyping, disabled = false }) {
 
   const canRecord =
     typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined';
+
+  // Entering edit mode loads the original text; leaving it clears the box.
+  useEffect(() => {
+    if (editing) {
+      setValue(editing.content);
+      setAttachment(null);
+      requestAnimationFrame(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.focus();
+        el.selectionStart = el.selectionEnd = el.value.length;
+        el.style.height = 'auto';
+        el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+      });
+    }
+  }, [editing]);
+
+  useEffect(() => {
+    if (replyTo) textareaRef.current?.focus();
+  }, [replyTo]);
 
   // ---- typing ----
   const stopTyping = () => {
@@ -92,6 +112,14 @@ export default function MessageInput({ onSend, onTyping, disabled = false }) {
   // ---- send ----
   const submit = () => {
     const text = value.trim();
+    if (editing) {
+      if (!text || disabled) return;
+      if (text !== editing.content) onEdit?.(editing, text);
+      else onCancelEdit?.();
+      setValue('');
+      stopTyping();
+      return;
+    }
     if ((!text && !attachment) || disabled) return;
     onSend({ content: text, file: attachment });
     setValue('');
@@ -193,6 +221,32 @@ export default function MessageInput({ onSend, onTyping, disabled = false }) {
     <div className="composer-wrap">
       {showEmoji && <EmojiPicker onPick={insertEmoji} />}
 
+      {editing && (
+        <div className="context-strip">
+          <Icon name="edit-2" size={16} className="context-strip__icon" />
+          <span className="context-strip__text">
+            <strong>Editing message</strong>
+            <span className="muted">{editing.content}</span>
+          </span>
+          <button type="button" className="icon-btn" onClick={() => { setValue(''); onCancelEdit?.(); }} aria-label="Cancel edit">
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+      )}
+
+      {replyTo && !editing && (
+        <div className="context-strip context-strip--reply">
+          <Icon name="reply" size={16} className="context-strip__icon" />
+          <span className="context-strip__text">
+            <strong>Replying to {replyTo.sender?.displayName || 'message'}</strong>
+            <span className="muted">{messageSummary(replyTo)}</span>
+          </span>
+          <button type="button" className="icon-btn" onClick={onCancelReply} aria-label="Cancel reply">
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+      )}
+
       {attachment && (
         <div className="attach-preview">
           {preview && fileKind(attachment) === 'image' && <img src={preview} alt="" />}
@@ -238,6 +292,7 @@ export default function MessageInput({ onSend, onTyping, disabled = false }) {
           <button
             type="button"
             className={`icon-btn ${showAttach ? 'is-active' : ''}`}
+            disabled={Boolean(editing)}
             onClick={() => {
               setShowAttach((v) => !v);
               setShowEmoji(false);
@@ -303,6 +358,11 @@ export default function MessageInput({ onSend, onTyping, disabled = false }) {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               submit();
+            } else if (e.key === 'Escape') {
+              if (editing) {
+                setValue('');
+                onCancelEdit?.();
+              } else if (replyTo) onCancelReply?.();
             }
           }}
           onFocus={() => setShowAttach(false)}
@@ -317,9 +377,9 @@ export default function MessageInput({ onSend, onTyping, disabled = false }) {
           aria-label="Message"
         />
 
-        {hasContent || !canRecord ? (
-          <button type="submit" className="composer__send" disabled={disabled || !hasContent} aria-label="Send message">
-            <Icon name="send" size={18} />
+        {hasContent || !canRecord || editing ? (
+          <button type="submit" className="composer__send" disabled={disabled || !hasContent} aria-label={editing ? 'Save edit' : 'Send message'}>
+            <Icon name={editing ? 'check' : 'send'} size={18} />
           </button>
         ) : (
           <button type="button" className="composer__send" onClick={startRecording} disabled={disabled} aria-label="Record voice note" title="Record voice note">

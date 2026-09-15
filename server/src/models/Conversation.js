@@ -11,6 +11,8 @@ const participantSchema = new Schema(
     /** Messages up to this timestamp have reached this participant's client (✓✓). */
     lastDeliveredAt: { type: Date, default: () => new Date(0) },
     joinedAt: { type: Date, default: Date.now },
+    /** Per-member notification preference. */
+    muted: { type: Boolean, default: false },
   },
   { _id: false, id: false },
 );
@@ -19,6 +21,8 @@ const conversationSchema = new Schema(
   {
     type: { type: String, enum: ['direct', 'group'], required: true },
     name: { type: String, trim: true, maxlength: 80, default: '' },
+    /** Group photo (groups only). */
+    avatarUrl: { type: String, default: '', maxlength: 500 },
     participants: { type: [participantSchema], default: [] },
     admins: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },

@@ -35,6 +35,31 @@ export async function addMembers(req, res) {
   res.json({ conversation });
 }
 
+export async function update(req, res) {
+  const { conversation, message } = await conversationService.update(req.params.id, req.user._id, req.body);
+  const io = ioOf(req);
+  if (io) {
+    io.to(`conversation:${conversation.id}`).emit('conversation:updated', conversation);
+    io.to(`conversation:${conversation.id}`).emit('message:new', message);
+  }
+  res.json({ conversation });
+}
+
+export async function removeMember(req, res) {
+  const { conversation, message, removedId } = await conversationService.removeMember(
+    req.params.id,
+    req.user._id,
+    req.params.userId,
+  );
+  emit.memberRemoved(ioOf(req), conversation, message, removedId);
+  res.json({ conversation });
+}
+
+export async function mute(req, res) {
+  const conversation = await conversationService.setMuted(req.params.id, req.user._id, req.body.muted);
+  res.json({ conversation });
+}
+
 export async function leave(req, res) {
   const { conversation, message } = await conversationService.leave(req.params.id, req.user._id);
   emit.memberLeft(ioOf(req), req.params.id, req.user._id, conversation, message);

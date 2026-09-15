@@ -1,11 +1,15 @@
 import { Router } from 'express';
 import * as controller from '../controllers/message.controller.js';
 import { requireAuth } from '../middleware/auth.js';
-import { validateObjectIdParams } from '../middleware/validate.js';
+import { validateBody, validateObjectIdParams } from '../middleware/validate.js';
+import { editMessageSchema, reactSchema } from '../validation/schemas.js';
 
 const router = Router();
+const withId = validateObjectIdParams('id');
 
 router.use(requireAuth);
-router.delete('/:id', validateObjectIdParams('id'), controller.remove);
+router.patch('/:id', withId, validateBody(editMessageSchema), controller.edit);
+router.put('/:id/reactions', withId, validateBody(reactSchema), controller.react);
+router.delete('/:id', withId, controller.remove);
 
 export default router;

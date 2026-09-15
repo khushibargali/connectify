@@ -87,7 +87,35 @@ const messageBody = z.object({
   content: z.string().trim().max(4000, 'Message is too long').default(''),
   clientId: z.string().max(64).optional(),
   attachment: attachmentSchema.optional(),
+  replyTo: objectId.optional(),
 });
+
+export const reactSchema = z.object({
+  emoji: z
+    .string()
+    .trim()
+    .min(1)
+    .max(16)
+    .regex(/^[\p{Extended_Pictographic}\p{Emoji_Component}\u200d\ufe0f]+$/u, 'Reactions must be an emoji'),
+});
+
+export const editMessageSchema = z.object({
+  content: z.string({ error: 'Message cannot be empty' }).trim().min(1, 'Message cannot be empty').max(4000),
+});
+
+export const searchMessagesQuerySchema = z.object({
+  q: z.string({ error: 'Search text is required' }).trim().min(1, 'Search text is required').max(100),
+  limit: z.coerce.number().int().min(1).max(50).default(30),
+});
+
+export const updateConversationSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Group name is required').max(80).optional(),
+    avatarUrl: avatarUrl.optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: 'Nothing to update' });
+
+export const muteSchema = z.object({ muted: z.boolean() });
 
 const requireBodyOrAttachment = (value, ctx) => {
   if (value.type === 'text' && !value.content) {

@@ -29,6 +29,9 @@ export function ChatProvider({ children }) {
   const connectedBefore = useRef(false);
   /** clientId → { file, kind, duration, blobUrl } for optimistic media messages (retry support). */
   const pendingFiles = useRef(new Map());
+  /** Latest state for socket handlers and async loops without re-subscribing. */
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // useNavigate() returns a new function on every route change; keep it in a ref so the
   // socket subscriptions below are not torn down and re-created on each navigation.
@@ -105,6 +108,7 @@ export function ChatProvider({ children }) {
         }
       },
       'message:deleted': ({ conversationId, messageId }) => dispatch({ type: 'messages/deleted', conversationId, messageId }),
+      'message:updated': (message) => dispatch({ type: 'messages/updated', message }),
       'conversation:new': (conversation) => dispatch({ type: 'conversations/upsert', conversation }),
       'conversation:updated': (conversation) => dispatch({ type: 'conversations/upsert', conversation }),
       'conversation:removed': ({ conversationId }) => {
@@ -121,6 +125,8 @@ export function ChatProvider({ children }) {
       notification: (note) => {
         if (note.type === 'message') {
           if (isViewing(note.conversationId)) return;
+          const conversation = stateRef.current.conversations.find((c) => c.id === note.conversationId);
+          if (conversation?.participants.some((p) => p.user?.id === meId && p.muted)) return;
           const { message } = note;
           const title = message.sender?.displayName || 'New message';
           const body = message.type === 'system' ? `${title} ${message.content}` : messageSummary(message);
@@ -186,7 +192,7 @@ export function ChatProvider({ children }) {
    */
   const sendMessage = useCallback(
     (conversationId, input) => {
-      const { content = '', file = null, kind, duration } = typeof input === 'string' ? { content: input } : input || {};
+      const { content = '', file = null, kind, duration, replyTo = null } = typeof input === 'string' ? { content: input } : input || {};
       const text = content.trim();
       if (!text && !file) return;
 
@@ -207,6 +213,7 @@ export function ChatProvider({ children }) {
           content: text,
           createdAt: new Date().toISOString(),
           pending: true,
+          replyTo,
           ...(file && {
             attachment: { url: blobUrl, name: file.name, mimeType: file.type, size: file.size, duration },
             progress: 0,
@@ -226,7 +233,14 @@ export function ChatProvider({ children }) {
       const fail = () => dispatch({ type: 'messages/failed', conversationId, clientId });
 
       const deliver = (attachment) => {
-        const payload = { conversationId, type, content: text, clientId, ...(attachment && { attachment }) };
+        const payload = {
+          conversationId,
+          type,
+          content: text,
+          clientId,
+          ...(attachment && { attachment }),
+          ...(replyTo && { replyTo: replyTo.id }),
+        };
         if (socket?.connected) {
           socket.timeout(15000).emit('message:send', payload, (err, res) => (err || !res?.ok ? fail() : settle(res.message)));
         } else {
@@ -295,6 +309,51 @@ export function ChatProvider({ children }) {
     [socket],
   );
 
+  const reactToMessage = useCallback(async (message, emoji) => {
+    const updated = await messagesApi.react(message.id, emoji);
+    dispatch({ type: 'messages/updated', message: updated });
+  }, []);
+
+  const editMessage = useCallback(async (message, content) => {
+    const updated = await messagesApi.edit(message.id, content);
+    dispatch({ type: 'messages/updated', message: updated });
+  }, []);
+
+  const searchMessages = useCallback((conversationId, q) => messagesApi.search(conversationId, q), []);
+
+  /** Loads older pages until the message is in memory (for quote and search-result jumps). */
+  const jumpToMessage = useCallback(
+    async (conversationId, messageId) => {
+      const has = () => stateRef.current.messages[conversationId]?.items.some((m) => m.id === messageId);
+      for (let page = 0; page < 12 && !has(); page += 1) {
+        const bucket = stateRef.current.messages[conversationId];
+        const oldest = bucket?.items.find((m) => !m.pending && !m.failed);
+        if (!bucket?.hasMore || !oldest) break;
+        await loadMessages(conversationId, { before: oldest.id });
+      }
+      return has();
+    },
+    [loadMessages],
+  );
+
+  const updateGroup = useCallback(async (conversationId, patch) => {
+    const { conversation } = await conversationsApi.update(conversationId, patch);
+    dispatch({ type: 'conversations/upsert', conversation });
+    return conversation;
+  }, []);
+
+  const removeMember = useCallback(async (conversationId, userId) => {
+    const { conversation } = await conversationsApi.removeMember(conversationId, userId);
+    dispatch({ type: 'conversations/upsert', conversation });
+    return conversation;
+  }, []);
+
+  const setMuted = useCallback(async (conversationId, muted) => {
+    const { conversation } = await conversationsApi.setMuted(conversationId, muted);
+    dispatch({ type: 'conversations/upsert', conversation });
+    return conversation;
+  }, []);
+
   const deleteMessage = useCallback(async (message) => {
     const { message: updated } = await messagesApi.remove(message.id);
     dispatch({ type: 'messages/deleted', conversationId: updated.conversation, messageId: updated.id });
@@ -338,6 +397,13 @@ export function ChatProvider({ children }) {
       markRead,
       sendTyping,
       deleteMessage,
+      reactToMessage,
+      editMessage,
+      searchMessages,
+      jumpToMessage,
+      updateGroup,
+      removeMember,
+      setMuted,
       startDirect,
       createGroup,
       addMembers,
@@ -356,6 +422,13 @@ export function ChatProvider({ children }) {
       markRead,
       sendTyping,
       deleteMessage,
+      reactToMessage,
+      editMessage,
+      searchMessages,
+      jumpToMessage,
+      updateGroup,
+      removeMember,
+      setMuted,
       startDirect,
       createGroup,
       addMembers,
