@@ -14,6 +14,8 @@ See [PLAN.md](PLAN.md) for the architecture, data model, API contract and delive
 
 Demo accounts: `alice`, `bob`, `carol`, `dave` — password `password123`. Open two browsers with two accounts to see live delivery, typing and read receipts.
 
+The Vercel link is behind **Vercel Authentication** (the team default for new projects) until it is switched off in Vercel → Project → Settings → Deployment Protection; until then only people logged into the Vercel team can open it. The tunnel link is fully public.
+
 The API behind both links currently runs on the developer's machine through a Cloudflare quick tunnel, so it is available while that machine is on; see [DEPLOY.md](DEPLOY.md) for the one-click Render setup that makes it permanent.
 
 ## Features
