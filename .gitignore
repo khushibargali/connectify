@@ -12,3 +12,4 @@ coverage/
 .gstack/
 .mongodb-binaries/
 server/uploads/
+.kilo/
